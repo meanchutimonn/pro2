@@ -1,14 +1,18 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { Icon } from "@iconify/react";
 import TripMapPage from "../components/TripMapPage";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
-import { collection, getDocs, query, where } from "firebase/firestore";
+import {
+  collection, getDocs, query, where,
+  doc, getDoc, setDoc, serverTimestamp
+} from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 
-// ── Palette (คงเดิมตามโค้ดของคุณ) ──────────────────────────────────────────────
+// ── Palette ────────────────────────────────────────────────────────────────────
 const W = {
   bg: "#ffffff",
   text: "#000000",
@@ -22,25 +26,28 @@ const W = {
 };
 
 // ── ฟังก์ชันคำนวณระยะทาง (Haversine) ──────────────────────────────────────────
-function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
+function calculateDistance(
+  lat1: number, lon1: number,
+  lat2: number, lon2: number
+) {
   const R = 6371;
   const dLat = (lat2 - lat1) * (Math.PI / 180);
   const dLon = (lon2 - lon1) * (Math.PI / 180);
   const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-    Math.sin(dLon / 2) * Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * (Math.PI / 180)) *
+    Math.cos(lat2 * (Math.PI / 180)) *
+    Math.sin(dLon / 2) ** 2;
+  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
-// ── Types (คงเดิมตามโค้ดของคุณ) ───────────────────────────────────────────────
+// ── Types ──────────────────────────────────────────────────────────────────────
 export interface TripStop {
   id: number;
   name: string;
   location_id?: string;
   locationId?: string;
-  nameTH?: string;
+  cafeId?: string;
   rating: number;
   distance: string;
   description: string;
@@ -56,55 +63,52 @@ export interface TripDetail {
   stops: TripStop[];
 }
 
-interface TripDetailPageProps {
-  trip: TripDetail;
-  onBack?: () => void;
-  onHome?: () => void;
+// ── ภารกิจทั้งหมด (แสดงใน tab "ภารกิจทั้งหมด") ────────────────────────────────
+const allTrips = [
+  {
+    id: 1,
+    title: "สงบใจในอาราม",
+    subtitle: "ในวันที่ชีวิตหมุนเร็วเกินไปจนเกิดความเหนื่อยล้า เราขอชวนคุณทิ้งความวุ่นวายไว้ข้างหลัง แล้วออกเดินทางไปสัมผัสความสงบภายใน",
+    image: "/photo/pointaram.png",
+    heroImage: "/photo/temple_trip.png",
+    points: 50,
+    stops: [],
+  },
+  {
+    id: 2,
+    title: "The Green Caffeine Tour",
+    subtitle: 'ร่วมเดินทางในทริปพิเศษที่จะพาไป "Hopping" คาเฟ่ที่ดีที่สุดในย่านสามพราน ทริปที่คัดมาแล้วว่าไม่ได้มีดีแค่กาแฟ',
+    image: "/photo/green cafe.png",
+    heroImage: "/photo/cafe_tour.png",
+    points: 50,
+    stops: [],
+  },
+  {
+    id: 3,
+    title: "One Day Magic Sam Phran",
+    subtitle: "มาเปลี่ยนวันว่างธรรมดา ให้เป็นวันแห่งการพักผ่อนที่สามพราน",
+    image: "/photo/oneday.png",
+    heroImage: "/photo/sampran_trip.png",
+    points: 50,
+    stops: [],
+  },
+];
+
+// ── helper: ดึง ID ของ stop ──────────────────────────────────────────────────
+function getStopId(stop: any): string {
+  return String(
+    stop.location_id || stop.locationId || stop.cafeId || stop.id || ""
+  ).trim();
 }
 
-// ── Components ─────────────────────────────────────────────────────────────────
-
-function MapButton({
-  isChecked,
-  onClick,
-}: {
-  isChecked: boolean;
-  onClick: (e: React.MouseEvent) => void;
-}) {
-  return (
-    <button
-      onClick={onClick}
-      style={{
-        background: isChecked ? W.green : W.pink,
-        borderRadius: 14,
-        width: 52,
-        height: 52,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        flexShrink: 0,
-        boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
-        border: "none",
-        cursor: "pointer",
-      }}
-    >
-      <Icon
-        icon={isChecked ? "tdesign:map-unlocked-filled" : "tdesign:map-locked-filled"}
-        width="26"
-        height="26"
-        style={{ color: "#fff" }}
-      />
-    </button>
-  );
-}
-
+// ── StopRow ───────────────────────────────────────────────────────────────────
 function StopRow({
   stop,
   isChecked,
   getCafeId,
   onMapClick,
   userLoc,
-  cafes
+  cafes,
 }: {
   stop: TripStop;
   isChecked: boolean;
@@ -115,10 +119,13 @@ function StopRow({
 }) {
   const router = useRouter();
 
-  const cafeData = cafes.find(c => c.locationName === stop.name);
+  const cafeData = cafes.find((c) => c.locationName === stop.name);
   let displayDistance = stop.distance || "0.0 km";
-  if (userLoc && cafeData?.lat && cafeData?.lng) {
-    const d = calculateDistance(userLoc.lat, userLoc.lng, cafeData.lat, cafeData.lng);
+  if (userLoc && cafeData?.latitude && cafeData?.longitude) {
+    const d = calculateDistance(
+      userLoc.lat, userLoc.lng,
+      cafeData.latitude, cafeData.longitude
+    );
     displayDistance = `${d.toFixed(1)} km`;
   }
 
@@ -126,56 +133,47 @@ function StopRow({
     <div
       onClick={() => {
         const cafeId = getCafeId(stop.name);
-        if (cafeId) {
-          router.push(`/cafe/${cafeId}`);
-        }
+        if (cafeId) router.push(`/cafe/${cafeId}`);
       }}
       style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 16,
-        padding: "16px 0",
-        borderBottom: `1px solid ${W.lightGray}`,
+        display: "flex", alignItems: "center", gap: 16,
+        padding: "16px 0", borderBottom: `1px solid ${W.lightGray}`,
         cursor: "pointer",
       }}
     >
+      {/* ไอคอนสถานะ */}
       <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36 }}>
         {isChecked ? (
-          <div style={{ width: 36, height: 36, borderRadius: "50%", background: W.dark, display: "flex", alignItems: "center", justifyContent: "center" }}>
+          <div style={{ width: 36, height: 36, borderRadius: "50%", background: W.green, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <Icon icon="lucide:check" width="20" height="20" color="white" />
           </div>
         ) : (
           <div style={{ width: 36, height: 36, borderRadius: "50%", background: W.yellow, display: "flex", alignItems: "center", justifyContent: "center" }}>
-            <span style={{ color: "white", fontWeight: "bold", fontSize: 14 }}>{stop.id}</span>
+            <span style={{ color: "white", fontWeight: "bold", fontSize: 14 }}>{stop.id + 1}</span>
           </div>
         )}
       </div>
 
-      <div
-        style={{
-          width: 85,
-          height: 85,
-          borderRadius: 15,
-          background: `url('${stop.image}') center/cover #eee`,
-          flexShrink: 0,
-          boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
-        }}
-      />
+      {/* รูปร้าน */}
+      <div style={{
+        width: 85, height: 85, borderRadius: 15,
+        background: `url('${stop.image}') center/cover #eee`,
+        flexShrink: 0, boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
+      }} />
 
-      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", textAlign: "left", alignItems: "flex-start" }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: W.text, marginBottom: 4, width: "100%" }}>
-          {stop.name}
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6 }}>
-          <Icon icon="mdi:star" width="16" height="16" color="#F3BC00" />
+      {/* ข้อมูลร้าน */}
+      <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", textAlign: "left" }}>
+        <div style={{ fontSize: 15, fontWeight: 800, color: W.text, marginBottom: 4 }}>{stop.name}</div>
+        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+          <Icon icon="mdi:star" width="14" height="14" color="#F3BC00" />
           <span style={{ fontSize: 13, fontWeight: 700, color: W.text }}>{stop.rating}</span>
           <span style={{ color: "#D0D0D0", fontSize: 13, margin: "0 2px" }}>|</span>
           <span style={{ fontSize: 13, color: W.muted }}>{displayDistance}</span>
         </div>
       </div>
 
-      <MapButton
-        isChecked={isChecked}
+      {/* ปุ่ม map */}
+      <button
         onClick={(e) => {
           e.stopPropagation();
           if (isChecked) {
@@ -184,39 +182,79 @@ function StopRow({
             alert("📍 คุณต้องไปเช็คอินที่สถานที่นี้ก่อนเพื่อดูในแผนที่ค่ะ");
           }
         }}
-      />
+        style={{
+          background: isChecked ? W.green : W.pink,
+          borderRadius: 14, width: 52, height: 52,
+          display: "flex", alignItems: "center", justifyContent: "center",
+          flexShrink: 0, boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+          border: "none", cursor: "pointer",
+        }}
+      >
+        <Icon
+          icon={isChecked ? "tdesign:map-unlocked-filled" : "tdesign:map-locked-filled"}
+          width="26" height="26" style={{ color: "#fff" }}
+        />
+      </button>
     </div>
   );
 }
 
-export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: TripDetailPageProps) {
+// ── Main Component ─────────────────────────────────────────────────────────────
+export default function MissionPage() {
   const router = useRouter();
-  const [trip, setTrip] = useState<TripDetail | null>(initialTrip || null);
   const [cafes, setCafes] = useState<any[]>([]);
   const [historyIds, setHistoryIds] = useState<Set<string>>(new Set());
   const [showMap, setShowMap] = useState(false);
   const [activeTab, setActiveTab] = useState<"my" | "all">("my");
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
 
-  // ✅ แก้ไขให้กดย้อนกลับได้ (โหลดครั้งเดียว ไม่วน Loop)
+  // ── Firestore mission state ────────────────────────────────────────────────
+  const [activeMission, setActiveMission] = useState<TripDetail | null>(null);
+  const [missionLoading, setMissionLoading] = useState(true);
+
+  const [randomImages, setRandomImages] = useState<{
+    temple: string | null;
+    cafe: string | null;
+    all: string | null;
+  }>({
+    temple: null,
+    cafe: null,
+    all: null,
+  });
+
+  // ── โหลด active mission จาก Firestore ─────────────────────────────────────
+  useEffect(() => {
+    const auth = getAuth();
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user) {
+        setMissionLoading(false);
+        return;
+      }
+
+      const missionSnap = await getDoc(doc(db, "userMissions", user.uid));
+      if (missionSnap.exists()) {
+        const data = missionSnap.data();
+        if (data.status === "active" && data.tripData) {
+          setActiveMission(data.tripData as TripDetail);
+          setActiveTab("my");
+        } else {
+          setActiveMission(null);
+          setActiveTab("all");
+        }
+      } else {
+        setActiveMission(null);
+        setActiveTab("all");
+      }
+      setMissionLoading(false);
+    });
+    return () => unsub();
+  }, []);
+
+  // ── โหลด cafes + geolocation ──────────────────────────────────────────────
   useEffect(() => {
     const fetchData = async () => {
       const snap = await getDocs(collection(db, "locations"));
-      setCafes(snap.docs.map((doc) => ({ id: doc.id, ...doc.data() })));
-
-      if (!trip) {
-        const tripSnap = await getDocs(collection(db, "monthlyTrips"));
-        console.log("MONTHLY TRIPS SIZE:", tripSnap.size);
-
-        tripSnap.docs.forEach((d) => {
-          console.log("MONTHLY TRIP DOC:", d.id, d.data());
-        });
-
-        if (!tripSnap.empty) {
-          const firstTrip = tripSnap.docs[0].data() as TripDetail;
-          setTrip({ ...firstTrip, id: Number(tripSnap.docs[0].id) });
-        }
-      }
+      setCafes(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
     };
     fetchData();
 
@@ -228,92 +266,130 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
     }
   }, []);
 
-  // ✅ แก้ไขให้ Link ภารกิจ: เพิ่มการเช็ค merchantId จาก Firebase
+  // ── โหลด checkin history กรองเฉพาะ stop ของ mission ───────────────────────
   useEffect(() => {
+    if (!activeMission) return;
+
     const auth = getAuth();
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        const q = query(collection(db, "checkins"), where("userId", "==", user.uid));
-        const snap = await getDocs(q);
-        const visited = new Set<string>();
+    const unsub = onAuthStateChanged(auth, async (user) => {
+      if (!user) return;
+
+      const missionStopIds = new Set(
+        activeMission.stops.map((s) => getStopId(s))
+      );
+
+      const q = query(
+        collection(db, "checkins"),
+        where("userId", "==", user.uid)
+      );
+      const snap = await getDocs(q);
+      const visited = new Set<string>();
+
+      snap.forEach((docSnap) => {
+        const data = docSnap.data();
+        const locId = String(
+          data.locationId || data.location_id || data.merchantId || ""
+        ).trim();
+        if (locId && missionStopIds.has(locId)) {
+          visited.add(locId);
+        }
+      });
+
+      setHistoryIds(visited);
+    });
+    return () => unsub();
+  }, [activeMission]);
+
+  useEffect(() => {
+    const loadImages = async () => {
+      try {
+        const snap = await getDocs(collection(db, "locations"));
+
+        let templeImages: string[] = [];
+        let cafeImages: string[] = [];
+        let allImages: string[] = [];
+
         snap.forEach((doc) => {
           const data = doc.data();
-          // ✅ ดึงจาก merchantId ตามที่โชว์ใน Firebase รูปภาพของคุณ
-          const id = data.merchantId || data.locationId || data.location_id;
-          console.log("FOUND CHECKIN ID:", id);
-          if (id) {
-            visited.add(String(id).trim());
+
+          if (
+            data.extraImages &&
+            Array.isArray(data.extraImages) &&
+            data.extraImages.length > 0
+          ) {
+            if (data.category === "Temple") {
+              templeImages.push(...data.extraImages);
+            }
+
+            if (data.category === "Cafe") {
+              cafeImages.push(...data.extraImages);
+            }
+
+            allImages.push(...data.extraImages);
           }
-          console.log("CHECKIN DOC:", doc.id, doc.data());
         });
-        setHistoryIds(visited);
+
+        setRandomImages({
+          temple:
+            templeImages.length > 0
+              ? templeImages[Math.floor(Math.random() * templeImages.length)]
+              : null,
+
+          cafe:
+            cafeImages.length > 0
+              ? cafeImages[Math.floor(Math.random() * cafeImages.length)]
+              : null,
+
+          all:
+            allImages.length > 0
+              ? allImages[Math.floor(Math.random() * allImages.length)]
+              : null,
+        });
+
+      } catch (error) {
+        console.error("Error loading images:", error);
       }
-    });
-    return () => unsubscribe();
+    };
+
+    loadImages();
   }, []);
 
   const getCafeId = (stopName: string) => {
-    const match = cafes.find((c) => c.locationName === stopName);
-    return match?.id;
+    return cafes.find((c) => c.locationName === stopName)?.id;
   };
 
-  const getStopLocationId = (stop: any) => {
-    const directId = stop.location_id || stop.locationId;
-
-    if (directId) return String(directId).trim();
-
-    const cafe = cafes.find((c) => c.locationName === stop.name);
-
-    return cafe?.id
-      ? String(cafe.id).trim()
-      : String(stop.id).trim();
-  };
-  if (!trip) return <div style={{ padding: 40, textAlign: "center" }}>กำลังโหลดข้อมูล...</div>;
-
-  // ✅ คำนวณ checkedCount โดยเช็ค ID แบบ String.trim()
-  const checkedCount = trip?.stops
-    ? trip.stops.filter((s: any) => {
-      const sId = getStopLocationId(s);
-      console.log("MISSION STOP:", {
-        stopName: s.name,
-        stopId: sId,
-        matched: historyIds.has(sId),
-      });
-      return historyIds.has(sId);
-    }).length
+  const checkedCount = activeMission
+    ? activeMission.stops.filter((s) => historyIds.has(getStopId(s))).length
     : 0;
 
-  console.log("===== MISSION DEBUG =====");
+  // ── onClaim ───────────────────────────────────────────────────────────────
+  const handleClaim = async () => {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (user) {
+      await setDoc(
+        doc(db, "userMissions", user.uid),
+        { status: "completed", completedAt: serverTimestamp() },
+        { merge: true }
+      );
+    }
+    localStorage.removeItem("activeMission");
+    localStorage.removeItem("activeMissionId");
+    localStorage.removeItem("activeMissionCompleted");
+    setActiveMission(null);
+    alert("🎉 Congratulations! You've claimed your points!");
+    setShowMap(false);
+    setActiveTab("all");
+  };
 
-  trip?.stops?.forEach((s: any) => {
-    const cafe = cafes.find((c) => c.locationName === s.name);
-
-    const finalId = getStopLocationId(s);
-
-    console.log({
-      stopName: s.name,
-      stopRawId: s.id,
-      stopLocationId: s.location_id,
-      stopLocationIdCamel: s.locationId,
-      cafeMatchedByName: cafe,
-      finalStopId: finalId,
-      historyIds: Array.from(historyIds),
-      matched: historyIds.has(finalId),
-    });
-  });
-
-  console.log("FINAL checkedCount:", checkedCount);
-
-  if (showMap) {
+  // ── Map view ──────────────────────────────────────────────────────────────
+  if (showMap && activeMission) {
     return (
       <TripMapPage
-        trip={trip}
-        onHome={onHome ?? onBack}
+        trip={activeMission}
+        onHome={() => setShowMap(false)}
         onMapClose={() => setShowMap(false)}
-        onClaim={() => {
-          alert("🎉 Congratulations! You've claimed your points!");
-          setShowMap(false);
-        }}
+        onClaim={handleClaim}
       />
     );
   }
@@ -328,55 +404,28 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
           background-repeat: no-repeat;
         }
       `}</style>
-      <div
-        style={{
-          width: "100%",
-          maxWidth: "1100px",
-          minHeight: "100vh",
-          background: "#fff",
-          borderRadius: "24px",
-          overflow: "hidden",
-          display: "flex",
-          flexDirection: "column",
-          boxShadow: "0 20px 50px rgba(0,0,0,0.25)",
-          margin: "0 auto",
-          backdropFilter: "blur(6px)",
-        }}
-      >
+
+      <div style={{
+        width: "100%", maxWidth: "1100px", minHeight: "100vh",
+        background: "#fff", borderRadius: "24px", overflow: "hidden",
+        display: "flex", flexDirection: "column",
+        boxShadow: "0 20px 50px rgba(0,0,0,0.25)",
+        margin: "0 auto",
+      }}>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", background: W.bg }}>
-          <div
-            style={{
-              position: "sticky",
-              top: 0,
-              zIndex: 20,
-              background: W.white,
-              borderBottom: `1px solid ${W.lightGray}`,
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-              padding: "14px 20px",
-            }}
-          >
+
+          {/* Header */}
+          <div style={{
+            position: "sticky", top: 0, zIndex: 20, background: W.white,
+            borderBottom: `1px solid ${W.lightGray}`, display: "flex",
+            alignItems: "center", justifyContent: "space-between", padding: "14px 20px",
+          }}>
             <button
-              onClick={() => {
-                if (onBack) {
-                  onBack();
-                } else {
-                  router.back();
-                }
-              }}
+              onClick={() => router.back()}
               style={{
-                width: 42,
-                height: 42,
-                borderRadius: "50%",
-                background: W.dark,
-                border: "none",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                cursor: "pointer",
-                color: W.white,
-                flexShrink: 0,
+                width: 42, height: 42, borderRadius: "50%", background: W.dark,
+                border: "none", display: "flex", alignItems: "center",
+                justifyContent: "center", cursor: "pointer", color: W.white, flexShrink: 0,
               }}
             >
               <Icon icon="lucide:chevron-left" width="22" height="22" />
@@ -387,147 +436,197 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
             <div style={{ width: 42 }} />
           </div>
 
+          {/* Tabs */}
           <div style={{ padding: "16px 20px 0" }}>
             <div style={{ display: "flex", background: "#f3f4f6", borderRadius: 100, padding: 4 }}>
-              <button
-                onClick={() => setActiveTab("my")}
-                style={{
-                  flex: 1,
-                  padding: "8px 0",
-                  borderRadius: 100,
-                  border: "none",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  background: activeTab === "my" ? W.dark : "transparent",
-                  color: activeTab === "my" ? "white" : "#6b7280",
-                }}
-              >
-                ภารกิจของฉัน
-              </button>
-              <button
-                onClick={() => setActiveTab("all")}
-                style={{
-                  flex: 1,
-                  padding: "8px 0",
-                  borderRadius: 100,
-                  border: "none",
-                  fontSize: 14,
-                  fontWeight: 600,
-                  cursor: "pointer",
-                  background: activeTab === "all" ? W.dark : "transparent",
-                  color: activeTab === "all" ? "white" : "#6b7280",
-                }}
-              >
-                ภารกิจทั้งหมด
-              </button>
+              {(["my", "all"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  style={{
+                    flex: 1, padding: "8px 0", borderRadius: 100, border: "none",
+                    fontSize: 14, fontWeight: 600, cursor: "pointer",
+                    background: activeTab === tab ? W.dark : "transparent",
+                    color: activeTab === tab ? "white" : "#6b7280",
+                    transition: "all 0.2s",
+                  }}
+                >
+                  {tab === "my" ? "ภารกิจของฉัน" : "ภารกิจทั้งหมด"}
+                </button>
+              ))}
             </div>
           </div>
 
+          {/* Content */}
           <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
-            <div
-              style={{
-                background: "#fffbeb",
-                border: "1px solid #fef3c7",
-                borderRadius: 24,
-                padding: 20,
-                display: "flex",
-                alignItems: "center",
-                gap: 16,
-                marginBottom: 24,
-              }}
-            >
-              <div
-                style={{
-                  width: 48,
-                  height: 48,
-                  background: "#fef3c7",
-                  borderRadius: 12,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  flexShrink: 0,
-                }}
-              >
-                <Icon icon="lucide:clipboard-list" width="28" height="28" color="#92400e" />
-              </div>
-              <div style={{ flex: 1 }}>
-                <div style={{ fontSize: 18, fontWeight: 800, color: W.text }}>{trip.title}</div>
-                <div style={{ fontSize: 13, color: W.muted, marginTop: 2 }}>
-                  เสร็จสิ้น {checkedCount} / {trip?.stops?.length || 0} ของภารกิจทั้งหมด
-                </div>
-                <div style={{ height: 8, background: "#fef3c7", borderRadius: 4, marginTop: 10, overflow: "hidden" }}>
-                  <div
-                    style={{
-                      height: "100%",
-                      background: W.dark,
-                      width: `${(checkedCount / (trip?.stops?.length || 1)) * 100}%`,
-                      transition: "width 0.4s ease",
-                    }}
-                  />
-                </div>
-              </div>
-              <button
-                onClick={() => {
-                  if (checkedCount > 0) {
-                    setShowMap(true);
-                  } else {
-                    alert("📍 คุณต้องเริ่มทำภารกิจ (เช็คอินอย่างน้อย 1 ที่) ก่อนจึงจะดูแผนที่ได้ค่ะ");
+
+            {/* ── Tab: ภารกิจของฉัน ─────────────────────────────────── */}
+            {activeTab === "my" && (
+              <>
+                {missionLoading && (
+                  <div style={{ padding: 24, textAlign: "center", color: W.muted }}>
+                    กำลังโหลด...
+                  </div>
+                )}
+
+                {!missionLoading && !activeMission && (
+                  <div style={{ padding: 32, textAlign: "center" }}>
+                    <div style={{ fontSize: 48, marginBottom: 12 }}>🗺️</div>
+                    <div style={{ fontSize: 16, fontWeight: 700, color: W.text, marginBottom: 8 }}>
+                      ยังไม่มีภารกิจที่กำลังทำอยู่
+                    </div>
+                    <div style={{ fontSize: 14, color: W.muted, marginBottom: 20 }}>
+                      ไปเลือกภารกิจในแท็บ ภารกิจทั้งหมด ได้เลย
+                    </div>
+                    <button
+                      onClick={() => setActiveTab("all")}
+                      style={{
+                        padding: "10px 24px", background: W.dark, color: "white",
+                        border: "none", borderRadius: 12, fontWeight: 700,
+                        cursor: "pointer", fontSize: 14,
+                      }}
+                    >
+                      ดูภารกิจทั้งหมด
+                    </button>
+                  </div>
+                )}
+
+                {!missionLoading && activeMission && (
+                  <>
+                    {/* Mission progress card */}
+                    <div style={{
+                      background: "#fffbeb", border: "1px solid #fef3c7",
+                      borderRadius: 24, padding: 20,
+                      display: "flex", alignItems: "center", gap: 16, marginBottom: 24,
+                    }}>
+                      <div style={{
+                        width: 48, height: 48, background: "#fef3c7", borderRadius: 12,
+                        display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
+                      }}>
+                        <Icon icon="lucide:clipboard-list" width="28" height="28" color="#92400e" />
+                      </div>
+                      <div style={{ flex: 1 }}>
+                        <div style={{ fontSize: 16, fontWeight: 800, color: W.text }}>
+                          {activeMission.title}
+                        </div>
+                        <div style={{ fontSize: 13, color: W.muted, marginTop: 2 }}>
+                          เสร็จสิ้น {checkedCount} / {activeMission.stops.length} สถานที่
+                        </div>
+                        <div style={{
+                          height: 8, background: "#fef3c7", borderRadius: 4,
+                          marginTop: 10, overflow: "hidden",
+                        }}>
+                          <div style={{
+                            height: "100%", background: W.dark, borderRadius: 4,
+                            width: `${(checkedCount / (activeMission.stops.length || 1)) * 100}%`,
+                            transition: "width 0.4s ease",
+                          }} />
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (checkedCount > 0) {
+                            setShowMap(true);
+                          } else {
+                            alert("📍 คุณต้องเริ่มทำภารกิจ (เช็คอินอย่างน้อย 1 ที่) ก่อนจึงจะดูแผนที่ได้ค่ะ");
+                          }
+                        }}
+                        style={{
+                          background: "white", border: "1px solid #fde68a",
+                          borderRadius: 12, padding: "8px 12px",
+                          display: "flex", alignItems: "center", gap: 4,
+                          cursor: checkedCount > 0 ? "pointer" : "not-allowed",
+                          fontSize: 13, fontWeight: 700,
+                          color: checkedCount > 0 ? "#92400e" : "#ccc",
+                          opacity: checkedCount > 0 ? 1 : 0.6,
+                        }}
+                      >
+                        ดูแผนที่
+                        <Icon icon="material-symbols:map" width="18" height="18" />
+                      </button>
+                    </div>
+
+                    {/* Stop list */}
+                    <div style={{ fontSize: 14, fontWeight: 700, color: W.text, marginBottom: 12 }}>
+                      ภารกิจที่กำลังทำ
+                    </div>
+                    <div style={{
+                      background: "white", borderRadius: 24, padding: "0 16px",
+                      boxShadow: "0 4px 15px rgba(0,0,0,0.05)",
+                      border: `1px solid ${W.lightGray}`,
+                    }}>
+                      {activeMission.stops.map((stop) => (
+                        <StopRow
+                          key={stop.id}
+                          stop={stop}
+                          isChecked={historyIds.has(getStopId(stop))}
+                          getCafeId={getCafeId}
+                          onMapClick={() => setShowMap(true)}
+                          userLoc={userLoc}
+                          cafes={cafes}
+                        />
+                      ))}
+                    </div>
+                  </>
+                )}
+              </>
+            )}
+
+            {/* ── Tab: ภารกิจทั้งหมด ────────────────────────────────── */}
+            {activeTab === "all" && (
+              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                {allTrips.map((item) => {
+
+                  let bgImage = item.image;
+
+                  if (item.title.includes("อาราม") && randomImages.temple) {
+                    bgImage = randomImages.temple;
                   }
-                }}
-                style={{
-                  background: "white",
-                  border: "1px solid #fde68a",
-                  borderRadius: 12,
-                  padding: "8px 12px",
-                  display: "flex",
-                  alignItems: "center",
-                  gap: 4,
-                  cursor: checkedCount > 0 ? "pointer" : "not-allowed",
-                  fontSize: 13,
-                  fontWeight: 700,
-                  color: checkedCount > 0 ? "#92400e" : "#ccc",
-                  opacity: checkedCount > 0 ? 1 : 0.6,
-                }}
-              >
-                ดูแผนที่
-                <Icon icon="material-symbols:map" width="18" height="18" />
-              </button>
-            </div>
+                  else if (item.title.includes("Caffeine") && randomImages.cafe) {
+                    bgImage = randomImages.cafe;
+                  }
+                  else if (item.title.includes("Magic") && randomImages.all) {
+                    bgImage = randomImages.all;
+                  }
 
-            <div style={{ fontSize: 14, fontWeight: 700, color: W.text, marginBottom: 12 }}>
-              ภารกิจที่กำลังทำ
-            </div>
-            <div
-              style={{
-                background: "white",
-                borderRadius: 24,
-                padding: "0 16px",
-                boxShadow: "0 4px 15px rgba(0,0,0,0.05)",
-                border: `1px solid ${W.lightGray}`,
-              }}
-            >
-              {trip?.stops?.map((stop) => {
-                // ✅ เปรียบเทียบ ID แบบ String.trim() เพื่อให้ Link กันแน่นอน
-                const sId = getStopLocationId(stop);
-                const isVisited = historyIds.has(sId);
+                  return (
+                    <div
+                      key={item.id}
+                      onClick={() => router.push("/trip")}
+                      style={{
+                        background: "white", borderRadius: 20, padding: 16,
+                        border: `1px solid ${W.lightGray}`, cursor: "pointer",
+                        display: "flex", gap: 12, alignItems: "center",
+                        boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+                        transition: "box-shadow 0.2s",
+                      }}
+                    >
+                      <img
+                        src={bgImage}
+                        alt={item.title}
+                        style={{
+                          width: 90,
+                          height: 70,
+                          borderRadius: 12,
+                          objectFit: "cover",
+                        }}
+                      />
+                      <div>
+                        <div style={{ fontWeight: 800, fontSize: 15, color: W.text }}>{item.title}</div>
+                        <div style={{ fontSize: 13, color: W.muted, marginTop: 4 }}>{item.subtitle}</div>
+                      </div>
+                      <div style={{ marginLeft: "auto" }}>
+                        <Icon icon="lucide:chevron-right" width="20" color={W.muted} />
+                      </div>
+                    </div>
 
-                return (
-                  <StopRow
-                    key={stop.id}
-                    stop={stop}
-                    isChecked={isVisited}
-                    getCafeId={getCafeId}
-                    onMapClick={() => setShowMap(true)}
-                    userLoc={userLoc}
-                    cafes={cafes}
-                  />
-                );
-              })}
-            </div>
+                  )
+                })}
+              </div>
+            )}
           </div>
         </div>
-      </div >
+      </div>
     </>
   );
 }

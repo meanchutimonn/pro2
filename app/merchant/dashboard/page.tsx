@@ -135,7 +135,8 @@ export default function DashboardPage() {
         {/* ===== STATS CARDS ===== */}
         <div style={cardWrapper}>
           <StatCard title="วันนี้เช็คอิน" value={todayCount} />
-          <StatCard title="ยอดรวมเดือนนี้" value={couponUsedCount} />
+          <StatCard title="ยอดรวมเดือนนี้" value={monthCount} />
+          <StatCard title="คูปองถูกใช้" value={couponUsedCount} />
         </div>
 
         {/* ===== REVIEWS TABLE (ส่วนที่ปรับปรุงใหม่ตามรูป) ===== */}

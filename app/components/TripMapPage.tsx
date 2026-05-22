@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import { db } from "@/lib/firebase";
-import { collection, query, where, getDocs } from "firebase/firestore";
+import { collection, query, where, getDocs, getDoc, doc } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import type { TripDetail, TripStop } from "@/app/components/TripDetailPage";
 
@@ -264,50 +264,47 @@ export default function TripMapPage({
   // ✅ Firebase: ดึง checkins และกรองเอาเฉพาะวันแรกสุดของแต่ละที่
   useEffect(() => {
     const auth = getAuth();
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (user) {
-        try {
-          const q = query(
-            collection(db, "checkins"),
-            where("userId", "==", user.uid)
-          );
-          const snap = await getDocs(q);
-
-          // 1. ใช้ Object เพื่อเก็บเฉพาะ "เช็คอินแรกสุด" ของแต่ละ locationId
-          const earliestMap: Record<string, Date> = {};
-
-          snap.forEach((doc) => {
-            const data = doc.data();
-            const locId = String(data.locationId);
-            const checkinTime = data.createdAt?.toDate?.() ?? new Date();
-
-            if (locId) {
-              // ถ้ายังไม่มี locId นี้ หรือเจออันที่เก่ากว่า (เวลาน้อยกว่า) ให้บันทึกแทนที่
-              if (!earliestMap[locId] || checkinTime < earliestMap[locId]) {
-                earliestMap[locId] = checkinTime;
-              }
-            }
-          });
-
-          // 2. แปลงจาก Object เป็น Array เพื่อเอาไป Sort เรียงลำดับเส้นเดินทาง
-          const records = Object.entries(earliestMap).map(([locId, date]) => ({
-            locationId: locId,
-            createdAt: date,
-          }));
-
-          // 3. เรียงลำดับจาก เก่าไปใหม่ (ใครเช็คอินก่อน อยู่จุดเริ่มทริป)
-          records.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
-
-          setHistoryIds(new Set(records.map((r) => r.locationId)));
-          setCheckinOrder(records.map((r) => r.locationId));
-        } catch (err) {
-          console.error("Error fetching checkins:", err);
-        }
+      if (!user) {
+        setLoading(false);
+        return;
       }
+
+      try {
+        const missionSnap = await getDoc(doc(db, "userMissions", user.uid));
+
+        if (!missionSnap.exists()) {
+          setHistoryIds(new Set());
+          setCheckinOrder([]);
+          setLoading(false);
+          return;
+        }
+
+        const missionData = missionSnap.data();
+
+        if (String(missionData.tripId) !== String(trip.id)) {
+          setHistoryIds(new Set());
+          setCheckinOrder([]);
+          setLoading(false);
+          return;
+        }
+
+        const checkedIds = (missionData.checkedLocationIds || []).map((id: any) =>
+          String(id).trim()
+        );
+
+        setHistoryIds(new Set(checkedIds));
+        setCheckinOrder(checkedIds);
+      } catch (err) {
+        console.error("Error fetching mission progress:", err);
+      }
+
       setLoading(false);
     });
+
     return () => unsubscribe();
-  }, []);
+  }, [trip.id]);
 
   // ✅ track container width
   useEffect(() => {

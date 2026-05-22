@@ -9,7 +9,7 @@ import { getAuth } from "firebase/auth";
 export default function ScanPage() {
 
   const router = useRouter();
-
+  const scannedRef = useRef(false);
   const scannerRef = useRef<any>(null);
   const trackRef = useRef<any>(null);
 
@@ -20,14 +20,14 @@ export default function ScanPage() {
   useEffect(() => {
 
     const startCamera = async () => {
-        const user = getAuth().currentUser;
+      const user = getAuth().currentUser;
 
-        if (!user) {
-      alert("กรุณาเข้าสู่ระบบก่อนใช้งาน");
+      if (!user) {
+        alert("กรุณาเข้าสู่ระบบก่อนใช้งาน");
 
-      router.push("/login"); // 🔥 เด้งไปหน้า login
-      return;
-    }
+        router.push("/login"); // 🔥 เด้งไปหน้า login
+        return;
+      }
 
       try {
 
@@ -35,26 +35,26 @@ export default function ScanPage() {
         scannerRef.current = scanner;
 
         await scanner.start(
-            
+
           { facingMode: "environment" },
           {
             fps: 10,
             qrbox: { width: 250, height: 250 }
           },
           (decodedText: string) => {
-            if (scanned) return;
-
+            if (scannedRef.current) return;
+            scannedRef.current = true;
             setScanned(true);
 
-if (scannerRef.current && isScanning) {
-  setIsScanning(false);
-  scannerRef.current.stop().catch(() => {});
-}
+            if (scannerRef.current && isScanning) {
+              setIsScanning(false);
+              scannerRef.current.stop().catch(() => { });
+            }
 
-router.push(decodedText);
-}
+            router.push(decodedText);
+          }
         );
-setIsScanning(true);
+        setIsScanning(true);
         // ดึง track มาใช้ flash
         const video = document.querySelector("#reader video") as HTMLVideoElement;
 
@@ -72,15 +72,15 @@ setIsScanning(true);
     setTimeout(startCamera, 300);
 
     return () => {
- if (scannerRef.current && isScanning) {
-    scannerRef.current
-      .stop()
-      .then(() => {
-        scannerRef.current.clear();
-      })
-      .catch(() => {});
-  }
-};
+      if (scannerRef.current && isScanning) {
+        scannerRef.current
+          .stop()
+          .then(() => {
+            scannerRef.current.clear();
+          })
+          .catch(() => { });
+      }
+    };
 
   }, []);
 
@@ -110,7 +110,7 @@ setIsScanning(true);
         style={back}
         onClick={() => router.push("/")}
       >
-        
+
         <Icon icon="lucide:chevron-left" width="30" />
       </button>
 
@@ -128,13 +128,28 @@ setIsScanning(true);
       <p style={text}>
         เปิดใช้งานกล้องเพื่อสแกน QR Code
       </p>
-    
-    <div style={{ marginTop: "20px", display: "flex", gap: "10px" }}>
+
+      <div style={guideBox}>
+        <h3 style={guideTitle}>คำแนะนำการสแกน</h3>
+
+        <p style={guideText}>
+          • สำหรับร้านค้า กรุณาขอ QR Code ได้ที่เคาน์เตอร์
+        </p>
+
+        <p style={guideText}>
+          • สำหรับวัด จุดสแกนจะอยู่บริเวณทางเข้าโบสถ์
+        </p>
+
+        <p style={guideText}>
+          • สำหรับตลาด จุดสแกนจะอยู่ที่เสาแรกของทางเข้าตลาด
+        </p>
+      </div>
+      <div style={{ marginTop: "20px", display: "flex", gap: "10px" }}>
 
 
-</div>
-      
-<style jsx global>{`
+      </div>
+
+      <style jsx global>{`
           body{
 background-image: url('/photo/background.jpg'); /* 🔥 ใส่รูป */
   background-size: cover;       /* เต็มจอ */
@@ -159,10 +174,10 @@ background-image: url('/photo/background.jpg'); /* 🔥 ใส่รูป */
   }
 `}</style>
     </div>
-    
+
 
   );
-  
+
 }
 
 
@@ -175,7 +190,7 @@ const page: React.CSSProperties = {
   flexDirection: "column",
   alignItems: "center",
   paddingTop: "80px",
-  position:"relative",
+  position: "relative",
   top: "20px"
 };
 
@@ -190,8 +205,8 @@ const back: React.CSSProperties = {
   background: "#6b4729",
   color: "white",
   fontSize: "20px",
-  cursor:"pointer",
-  
+  cursor: "pointer",
+
   display: "flex",              // ✅ เพิ่ม
   alignItems: "center",         // ✅ เพิ่ม
   justifyContent: "center"
@@ -221,4 +236,28 @@ const text: React.CSSProperties = {
   marginTop: "20px",
   fontSize: "18px",
   fontWeight: "600"
+};
+
+const guideBox: React.CSSProperties = {
+  marginTop: "18px",
+  width: "360px",
+  background: "rgba(255,255,255,0.95)",
+  borderRadius: "16px",
+  padding: "16px",
+  boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+  border: "1px solid #e5e5e5"
+};
+
+const guideTitle: React.CSSProperties = {
+  margin: "0 0 10px 0",
+  fontSize: "16px",
+  fontWeight: "700",
+  color: "#6b4729"
+};
+
+const guideText: React.CSSProperties = {
+  margin: "0 0 8px 0",
+  fontSize: "14px",
+  lineHeight: "1.5",
+  color: "#444"
 };

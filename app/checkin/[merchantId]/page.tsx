@@ -1,15 +1,19 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { auth, db } from "@/lib/firebase";
 import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc, setDoc, increment, addDoc, collection } from "firebase/firestore";
+import {
+  doc, getDoc, setDoc, increment, addDoc,
+  collection, arrayUnion
+} from "firebase/firestore";
 import { serverTimestamp } from "firebase/firestore";
 
 export default function CheckinPage() {
   const { merchantId } = useParams();
   const router = useRouter();
+  const isProcessingRef = useRef(false);
 
   const [status, setStatus] = useState<
     "loading" | "success" | "already" | "error"
@@ -17,12 +21,16 @@ export default function CheckinPage() {
 
   const [shopName, setShopName] = useState("");
 
-  const ADMIN_ID = "7Ay3Nc5bn8hAqjyl2QKM8oBGyBt1";
-
-  const getToday = () => new Date().toISOString().split("T")[0];
+  const getToday = () => {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Asia/Bangkok",
+    }).format(new Date());
+  };
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
+      if (isProcessingRef.current) return;
+      isProcessingRef.current = true;
       if (!user) {
         router.push("/login");
         return;
@@ -32,19 +40,15 @@ export default function CheckinPage() {
       const checkinId = `${user.uid}_${merchantId}_${today}`;
       const ref = doc(db, "checkins", checkinId);
 
-
       try {
-        // ✅ ใช้ users (ของคุณจริง)
         const locationSnap = await getDoc(
           doc(db, "locations", merchantId as string)
         );
-
         const locationData = locationSnap.data();
 
         const merchantSnap = await getDoc(
           doc(db, "users", merchantId as string)
         );
-
         const merchantData = merchantSnap.data();
 
         const placeName =
@@ -54,38 +58,117 @@ export default function CheckinPage() {
 
         setShopName(placeName);
 
-        const snap = await getDoc(ref);
+        const updateMissionProgress = async () => {
+          const missionRef = doc(db, "userMissions", user.uid);
+          const missionSnap = await getDoc(missionRef);
 
+          if (!missionSnap.exists()) return;
+
+          const missionData = missionSnap.data();
+          if (missionData.status !== "active") return;
+
+          const tripStops: any[] = missionData.tripData?.stops || [];
+
+          const stopIds = tripStops.map((s: any) =>
+            String(s.location_id || s.locationId || s.cafeId).trim()
+          );
+
+          const currentLocationId = String(merchantId).trim();
+
+          if (!stopIds.includes(currentLocationId)) return;
+
+          const checkedIds: string[] = missionData.checkedLocationIds || [];
+          const nextCheckedIds = Array.from(new Set([...checkedIds, currentLocationId]));
+
+          const allDone = stopIds.every((id) => nextCheckedIds.includes(id));
+
+          await setDoc(
+            missionRef,
+            {
+              checkedLocationIds: nextCheckedIds,
+              lastCheckinAt: serverTimestamp(),
+              status: allDone ? "completed" : "active",
+              completedAt: allDone ? serverTimestamp() : null,
+            },
+            { merge: true }
+          );
+        };
+
+        const snap = await getDoc(ref);
         if (snap.exists()) {
+          await updateMissionProgress();
           setStatus("already");
           return;
         }
 
-        // ✅ บันทึก checkin
+        // ── ดึง active mission ก่อน บันทึก checkin ──────────────────
+        const missionRefPre = doc(db, "userMissions", user.uid);
+        const missionSnapPre = await getDoc(missionRefPre);
+        const activeTripId = missionSnapPre.exists() && missionSnapPre.data().status === "active"
+          ? missionSnapPre.data().tripId
+          : null;
+
+        // ── บันทึก checkin (รวม tripId ของ mission ที่ active) ──────────
         await setDoc(ref, {
           userId: user.uid,
           merchantId,
           locationId: merchantId,
           date: today,
-          createdAt: serverTimestamp()
+          createdAt: serverTimestamp(),
         });
+
+        await updateMissionProgress();
 
         await addDoc(collection(db, "notifications"), {
           userId: user.uid,
           title: "เช็คอินสำเร็จ 📍",
-          body: `คุณเช็คอินที่ ${merchantData?.name || "ร้านค้า"} สำเร็จแล้ว`,
-          placeName: merchantData?.name || "ร้านค้า",
+          body: `คุณเช็คอินที่ ${locationData?.locationName || merchantData?.name || "ร้านค้า"} สำเร็จแล้ว`,
+          placeName: locationData?.locationName || merchantData?.name || "ร้านค้า",
           merchantId: merchantId,
           read: false,
-          createdAt: serverTimestamp()
+          createdAt: serverTimestamp(),
         });
 
-        // ✅ เพิ่มยอดร้าน (ไม่ error)
         await setDoc(
           doc(db, "users", merchantId as string),
           { checkinCount: increment(1) },
           { merge: true }
         );
+
+        // ── update checkedLocationIds ใน active mission ────────────
+        if (missionSnapPre.exists()) {
+          const missionData = missionSnapPre.data();
+          if (missionData.status === "active") {
+            const tripStops: any[] = missionData.tripData?.stops || [];
+            const stopIds = tripStops.map((s: any) =>
+              String(s.location_id || s.locationId || s.cafeId)
+            );
+            const isInMission = stopIds.includes(String(merchantId));
+
+            if (isInMission) {
+              await setDoc(
+                missionRefPre,
+                {
+                  checkedLocationIds: arrayUnion(String(merchantId)),
+                  lastCheckinAt: serverTimestamp(),
+                },
+                { merge: true }
+              );
+
+              // เช็คว่าครบทุกร้านแล้วไหม → auto complete
+              const checkedIds: string[] = missionData.checkedLocationIds || [];
+              const allIds = [...new Set([...checkedIds, String(merchantId)])];
+              const allDone = stopIds.every((id) => allIds.includes(id));
+              if (allDone) {
+                await setDoc(
+                  missionRefPre,
+                  { status: "completed", completedAt: serverTimestamp() },
+                  { merge: true }
+                );
+              }
+            }
+          }
+        }
 
         setStatus("success");
       } catch (err) {
@@ -95,7 +178,7 @@ export default function CheckinPage() {
     });
 
     return () => unsub();
-  }, [merchantId, router]);
+  }, [merchantId]);
 
   return (
     <div style={page}>
@@ -123,10 +206,7 @@ export default function CheckinPage() {
               <h1 style={icon}>⚠️</h1>
               <h2 style={title}>เช็คอินแล้ววันนี้</h2>
               <p style={sub}>{shopName}</p>
-
-              <button style={closeBtn} onClick={() => {
-                window.location.href = "/";
-              }}>
+              <button style={closeBtn} onClick={() => { window.location.href = "/"; }}>
                 กลับหน้าหลัก
               </button>
             </>
@@ -138,30 +218,21 @@ export default function CheckinPage() {
               <h1 style={icon}>🎉</h1>
               <h2 style={title}>เช็คอินสำเร็จ!</h2>
               <p style={sub}>{shopName}</p>
-
               <button
                 style={btn}
                 onClick={() => {
-                  // ✅ ยึดเส้นทางเดิมของคุณ 100% แต่ล็อกค่าไอดีกันหลุดชั่วคราวเพื่อทะลุเข้าหน้าเกมได้เลยโดยไม่นิ่งค้าง
                   const targetId = merchantId;
                   if (targetId) {
                     router.push(`/game-scan?merchantId=${targetId}`);
                   } else {
-                    const currentUrl = window.location.pathname;
-                    const idFromUrl = currentUrl.split("/").pop();
+                    const idFromUrl = window.location.pathname.split("/").pop();
                     router.push(`/game-scan?merchantId=${idFromUrl}`);
                   }
                 }}
               >
                 เล่นเกม
               </button>
-
-              <button
-                style={skipBtn}
-                onClick={() => {
-                  window.location.href = "/";
-                }}
-              >
+              <button style={skipBtn} onClick={() => { window.location.href = "/"; }}>
                 ข้าม
               </button>
             </>
@@ -169,27 +240,17 @@ export default function CheckinPage() {
         </div>
       </div>
 
-      {/* animation */}
       <style jsx global>{`
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
         }
-
         @keyframes popupScale {
-          from {
-            opacity: 0;
-            transform: scale(0.8);
-          }
-          to {
-            opacity: 1;
-            transform: scale(1);
-          }
+          from { opacity: 0; transform: scale(0.8); }
+          to { opacity: 1; transform: scale(1); }
         }
         @media (min-width: 768px) {
-          .popupBox {
-            border: 2px solid #6b4729;
-          }
+          .popupBox { border: 2px solid #6b4729; }
         }
       `}</style>
     </div>

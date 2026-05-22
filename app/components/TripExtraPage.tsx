@@ -4,11 +4,11 @@ import { Icon } from "@iconify/react";
 import TripDetailPage from "@/app/components/TripDetailPage";
 import type { TripDetail } from "@/app/components/TripDetailPage";
 import { db } from "@/lib/firebase";
-import { 
-  collection, 
-  getDocs, 
-  doc, 
-  runTransaction 
+import {
+  collection,
+  getDocs,
+  doc,
+  runTransaction
 } from "firebase/firestore";
 
 // ── Palette ────────────────────────────────────────────────────────────────────
@@ -57,9 +57,9 @@ export default function TripExtraPage({ onBack, initialTripId }: { onBack: () =>
   );
 
   const [userLocation, setUserLocation] = useState<{
-  lat: number;
-  lng: number;
-} | null>(null);
+    lat: number;
+    lng: number;
+  } | null>(null);
 
   const [randomImages, setRandomImages] = useState<{ temple: string | null; cafe: string | null; all: string | null }>({
     temple: null,
@@ -67,16 +67,16 @@ export default function TripExtraPage({ onBack, initialTripId }: { onBack: () =>
     all: null,
   });
 
-    useEffect(() => {
-  if (!navigator.geolocation) return;
+  useEffect(() => {
+    if (!navigator.geolocation) return;
 
-  navigator.geolocation.getCurrentPosition((pos) => {
-    setUserLocation({
-      lat: pos.coords.latitude,
-      lng: pos.coords.longitude,
+    navigator.geolocation.getCurrentPosition((pos) => {
+      setUserLocation({
+        lat: pos.coords.latitude,
+        lng: pos.coords.longitude,
+      });
     });
-  });
-}, []);
+  }, []);
 
   useEffect(() => {
     const loadImages = async () => {
@@ -118,19 +118,19 @@ export default function TripExtraPage({ onBack, initialTripId }: { onBack: () =>
   }
 
 
-function getDistanceKm(lat1:number, lon1:number, lat2:number, lon2:number) {
-  const R = 6371;
-  const dLat = (lat2 - lat1) * Math.PI/180;
-  const dLon = (lon2 - lon1) * Math.PI/180;
+  function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
 
-  const a =
-    Math.sin(dLat/2)**2 +
-    Math.cos(lat1*Math.PI/180) *
-    Math.cos(lat2*Math.PI/180) *
-    Math.sin(dLon/2)**2;
+    const a =
+      Math.sin(dLat / 2) ** 2 +
+      Math.cos(lat1 * Math.PI / 180) *
+      Math.cos(lat2 * Math.PI / 180) *
+      Math.sin(dLon / 2) ** 2;
 
-  return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
-}
+    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+  }
 
   return (
     <div className="page" style={{ width: "100%", minHeight: "100%", background: W.bg, display: "flex", flexDirection: "column" }}>
@@ -159,110 +159,111 @@ function getDistanceKm(lat1:number, lon1:number, lat2:number, lon2:number) {
               key={trip.id}
               onClick={async () => {
 
-  const now = new Date();
-  const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+                const now = new Date();
+                const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
 
-  const ref = doc(db, "monthlyTrips", monthKey);
+                const ref = doc(db, "monthlyTrips", monthKey);
 
-  let data: any;
+                let data: any;
 
-  await runTransaction(db, async (transaction) => {
+                await runTransaction(db, async (transaction) => {
 
-    const snap = await transaction.get(ref);
+                  const snap = await transaction.get(ref);
 
-    // ✅ ถ้ามีแล้ว → ใช้เลย
-    if (snap.exists() && snap.data()?.data) {
-      data = snap.data().data;
-      return;
-    }
+                  // ✅ ถ้ามีแล้ว → ใช้เลย
+                  if (snap.exists() && snap.data()?.data) {
+                    data = snap.data().data;
+                    return;
+                  }
 
-    // 🔥 ถ้ายังไม่มี → สุ่ม
-    const locSnap = await getDocs(collection(db, "locations"));
+                  // 🔥 ถ้ายังไม่มี → สุ่ม
+                  const locSnap = await getDocs(collection(db, "locations"));
 
-    let all:any[] = [];
-    let cafe:any[] = [];
-    let temple:any[] = [];
+                  let all: any[] = [];
+                  let cafe: any[] = [];
+                  let temple: any[] = [];
 
-    locSnap.forEach(doc => {
-      const d = doc.data();
-      const item = { id: doc.id, ...d };
+                  locSnap.forEach(doc => {
+                    const d = doc.data();
+                    const item = { id: doc.id, ...d };
 
-      all.push(item);
-      if (d.category === "Cafe") cafe.push(item);
-      if (d.category === "Temple") temple.push(item);
-    });
+                    all.push(item);
+                    if (d.category === "Cafe") cafe.push(item);
+                    if (d.category === "Temple") temple.push(item);
+                  });
 
-    const rand = (arr:any[]) => {
-      const shuffled = [...arr].sort(() => 0.5 - Math.random());
+                  const rand = (arr: any[]) => {
+                    const shuffled = [...arr].sort(() => 0.5 - Math.random());
 
-      if (shuffled.length === 0) return [];
-      if (shuffled.length >= 5) return shuffled.slice(0, 5);
+                    if (shuffled.length === 0) return [];
+                    if (shuffled.length >= 5) return shuffled.slice(0, 5);
 
-      let result = [...shuffled];
-      while (result.length < 5) {
-        result.push(shuffled[result.length % shuffled.length]);
-      }
-      return result;
-    };
+                    let result = [...shuffled];
+                    while (result.length < 5) {
+                      result.push(shuffled[result.length % shuffled.length]);
+                    }
+                    return result;
+                  };
 
-    data = {
-      Cafeeine: rand(cafe),
-      อาราม: rand(temple),
-      Magic: rand(all),
-    };
+                  data = {
+                    Cafeeine: rand(cafe),
+                    อาราม: rand(temple),
+                    Magic: rand(all),
+                  };
 
-    // 🔥 เขียนแบบ transaction (ล็อค)
-    transaction.set(ref, {
-      month: monthKey,
-      data: data
-    });
-  });
+                  // 🔥 เขียนแบบ transaction (ล็อค)
+                  transaction.set(ref, {
+                    month: monthKey,
+                    data: data
+                  });
+                });
 
-  // 🔥 เลือกหมวด
-  let type = "Magic";
-  if (trip.title.includes("Caffeine")) type = "Cafeeine";
-  else if (trip.title.includes("อาราม")) type = "อาราม";
-const stopsRaw = Array.isArray(data[type]) ? data[type] : [];
+                // 🔥 เลือกหมวด
+                let type = "Magic";
+                if (trip.title.includes("Caffeine")) type = "Cafeeine";
+                else if (trip.title.includes("อาราม")) type = "อาราม";
+                const stopsRaw = Array.isArray(data[type]) ? data[type] : [];
 
-const newTrip = {
-  ...trip,
-  stops: stopsRaw.map((item:any, i:number) => {
+                const newTrip = {
+                  ...trip,
+                  stops: stopsRaw.map((item: any, i: number) => {
 
-    let distanceText = "loading...";
+                    let distanceText = "loading...";
 
-    if (
-      userLocation &&
-      item.latitude &&
-      item.longitude
-    ) {
-      const d = getDistanceKm(
-        userLocation.lat,
-        userLocation.lng,
-        item.latitude,
-        item.longitude
-      );
+                    if (
+                      userLocation &&
+                      item.latitude &&
+                      item.longitude
+                    ) {
+                      const d = getDistanceKm(
+                        userLocation.lat,
+                        userLocation.lng,
+                        item.latitude,
+                        item.longitude
+                      );
 
-      distanceText = d.toFixed(1) + " km";
-    }
+                      distanceText = d.toFixed(1) + " km";
+                    }
 
-    return {
-      id: i,
-      location_id: item.id, // ✅ เพิ่มเพื่อใช้เช็คอินอัตโนมัติ
-      locationId: item.id,  // ✅ เพิ่มเผื่อไว้กันเหนียว
-      cafeId: item.id,
+                    return {
+                      id: i,
+                      location_id: item.id, // ✅ เพิ่มเพื่อใช้เช็คอินอัตโนมัติ
+                      locationId: item.id,  // ✅ เพิ่มเผื่อไว้กันเหนียว
+                      cafeId: item.id,
 
-      name: item.locationName || "ไม่พบชื่อ",
+                      name: item.locationName || "ไม่พบชื่อ",
 
-      rating: item.rating ?? 0,
-      distance: distanceText,
+                      rating: item.rating ?? 0,
+                      distance: distanceText,
 
-      description: item.description || "",
-      image: item.mainImage || item.extraImages?.[0] || "",
-    };
-  })
-};
-  setSelectedTrip(newTrip);
-}}
+                      description: item.description || "",
+                      image: item.mainImage || item.extraImages?.[0] || "",
+                    };
+                  })
+                };
+
+                setSelectedTrip(newTrip);
+              }}
               className="trip-card"
               style={{
                 position: "relative",
@@ -275,10 +276,10 @@ const newTrip = {
               }}
             >
               {/* Image Layer */}
-              <div style={{ 
-                position: "absolute", 
-                inset: 0, 
-                background: `url('${bgImage}') center/cover #555` 
+              <div style={{
+                position: "absolute",
+                inset: 0,
+                background: `url('${bgImage}') center/cover #555`
               }} />
 
               {/* Text Overlay */}
