@@ -23,6 +23,8 @@ export default function MyCouponPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedItem, setSelectedItem] = useState<any>(null); // สำหรับคุม Popup
   const router = useRouter();
+  const [sortBy, setSortBy] = useState("default");
+
 
   useEffect(() => {
     const auth = getAuth();
@@ -99,6 +101,27 @@ export default function MyCouponPage() {
     window.location.reload();
   };
 
+  const filteredCoupons = myCoupons
+    .filter(mc => !mc.used)
+    .sort((a, b) => {
+      if (sortBy === "expiry") {
+        const couponA = coupons.find(c => c.id === a.coupon_id);
+        const couponB = coupons.find(c => c.id === b.coupon_id);
+
+        const dateA = couponA?.expiry_date
+          ? new Date(couponA.expiry_date).getTime()
+          : 999999999999;
+
+        const dateB = couponB?.expiry_date
+          ? new Date(couponB.expiry_date).getTime()
+          : 999999999999;
+
+        return dateA - dateB;
+      }
+
+      return 0;
+    });
+
   return (
     <div className="page">
       <div className="header">
@@ -112,47 +135,61 @@ export default function MyCouponPage() {
         </div>
       </div>
 
+      <div className="sortBar">
+        <button
+          className={sortBy === "default" ? "activeSort" : ""}
+          onClick={() => setSortBy("default")}
+        >
+          ทั้งหมด
+        </button>
+
+        <button
+          className={sortBy === "expiry" ? "activeSort" : ""}
+          onClick={() => setSortBy("expiry")}
+        >
+          ใกล้หมดอายุ
+        </button>
+      </div>
+
       <div className="list">
         {isLoading ? (
           <div className="emptyText">กำลังโหลด...</div>
         ) : myCoupons.filter(mc => !mc.used).length === 0 ? (
           <div className="emptyText">ยังไม่มีคูปองที่คุณเก็บไว้</div>
         ) : (
-          myCoupons
-            .filter(mc => !mc.used)
-            .map((mc, index) => {
-              const coupon = coupons.find(c => c.id === mc.coupon_id);
-              if (!coupon) return null;
-              const location = locations.find(l => l.id === coupon.location_id);
-              if (!location) return null;
+          filteredCoupons.map((mc, index) => {
+            const coupon = coupons.find(c => c.id === mc.coupon_id);
+            if (!coupon) return null;
+            const location = locations.find(l => l.id === coupon.location_id);
+            if (!location) return null;
 
-              const isExpired = new Date(coupon.expiry_date) < new Date();
+            const isExpired = new Date(coupon.expiry_date) < new Date();
 
-              return (
-                <div
-                  className="card"
-                  key={index}
-                  onClick={() => !isExpired && setSelectedItem({ ...coupon, location, myCouponId: mc.id })}
-                  style={{ cursor: isExpired ? 'default' : 'pointer' }}
-                >
-                  <img src={location.mainImage} alt="" />
-                  <div className="overlay">
-                    <h2>{location.locationName}</h2>
-                    <p>{coupon.description}</p>
-                    {isExpired && <p style={{ color: "#ff4d4d", fontWeight: "bold" }}>คูปองหมดอายุแล้ว</p>}
-                  </div>
-
-                  {isExpired ? (
-                    <div className="applyBtn" style={{ background: "gray" }} onClick={(e) => {
-                      e.stopPropagation();
-                      deleteDoc(doc(db, "user_coupons", mc.id)).then(() => window.location.reload());
-                    }}>ลบ</div>
-                  ) : (
-                    <div className="applyBtn">รายละเอียด</div>
-                  )}
+            return (
+              <div
+                className="card"
+                key={index}
+                onClick={() => !isExpired && setSelectedItem({ ...coupon, location, myCouponId: mc.id })}
+                style={{ cursor: isExpired ? 'default' : 'pointer' }}
+              >
+                <img src={location.mainImage} alt="" />
+                <div className="overlay">
+                  <h2>{location.locationName}</h2>
+                  <p>{coupon.description}</p>
+                  {isExpired && <p style={{ color: "#ff4d4d", fontWeight: "bold" }}>คูปองหมดอายุแล้ว</p>}
                 </div>
-              );
-            })
+
+                {isExpired ? (
+                  <div className="applyBtn" style={{ background: "gray" }} onClick={(e) => {
+                    e.stopPropagation();
+                    deleteDoc(doc(db, "user_coupons", mc.id)).then(() => window.location.reload());
+                  }}>ลบ</div>
+                ) : (
+                  <div className="applyBtn">รายละเอียด</div>
+                )}
+              </div>
+            );
+          })
         )}
       </div>
 
@@ -327,6 +364,27 @@ export default function MyCouponPage() {
             overflow: hidden;
           }
         }
+
+        .sortBar{
+  display:flex;
+  gap:10px;
+  margin-bottom:18px;
+  overflow:auto;
+}
+
+.sortBar button{
+  border:none;
+  background:#eee;
+  padding:8px 14px;
+  border-radius:20px;
+  font-weight:600;
+  white-space:nowrap;
+}
+
+.activeSort{
+  background:#6b4729 !important;
+  color:white;
+}
       `}</style>
     </div>
   );

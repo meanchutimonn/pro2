@@ -29,6 +29,8 @@ export default function CouponPage() {
 
   const [activeTab, setActiveTab] = useState("coupon");
 
+  const [sortBy, setSortBy] = useState("default");
+
   const router = useRouter();
 
   useEffect(() => {
@@ -119,17 +121,35 @@ export default function CouponPage() {
   };
 
 
-  const validCoupons = coupons.filter(c => {
-    if (!c.expiry_date) return true;
+  const validCoupons = coupons
+    .filter(c => {
+      if (!c.expiry_date) return true;
 
-    const expiry = new Date(c.expiry_date);
+      const expiry = new Date(c.expiry_date);
 
-    if (isNaN(expiry.getTime())) return true;
+      if (isNaN(expiry.getTime())) return true;
 
-    const today = new Date();
+      const today = new Date();
 
-    return expiry >= today;
-  });
+      return expiry >= today;
+    })
+    .sort((a, b) => {
+      if (sortBy === "expiry") {
+        return (
+          new Date(a.expiry_date).getTime() -
+          new Date(b.expiry_date).getTime()
+        );
+      }
+
+      if (sortBy === "distance") {
+        const locA = locations.find((l) => l.id === a.location_id);
+        const locB = locations.find((l) => l.id === b.location_id);
+
+        return (locA?.distanceKm || 9999) - (locB?.distanceKm || 9999);
+      }
+
+      return 0;
+    });
 
   return (
     <div className="page">
@@ -158,6 +178,22 @@ export default function CouponPage() {
         <Icon icon="mdi:trophy" className="trophyIcon" />
         <span>คะแนนคงเหลือ :</span>
         <span className="balanceValue">{balance}</span>
+      </div>
+
+      <div className="sortBar">
+        <button
+          className={sortBy === "default" ? "activeSort" : ""}
+          onClick={() => setSortBy("default")}
+        >
+          ทั้งหมด
+        </button>
+
+        <button
+          className={sortBy === "expiry" ? "activeSort" : ""}
+          onClick={() => setSortBy("expiry")}
+        >
+          ใกล้หมดอายุ
+        </button>
       </div>
 
       {/* LIST */}
@@ -496,6 +532,27 @@ background-image: url('/photo/background.jpg'); /* 🔥 ใส่รูป */
           color:white;
         }
 
+        .sortBar{
+  display:flex;
+  gap:10px;
+  margin-bottom:18px;
+  overflow:auto;
+}
+
+.sortBar button{
+  border:none;
+  background:#eee;
+  padding:8px 14px;
+  border-radius:20px;
+  font-weight:600;
+  white-space:nowrap;
+}
+
+.activeSort{
+  background:#6b4729 !important;
+  color:white;
+}
+  
         .navItem { text-align:center; font-size:11px; }
 
         .scan {

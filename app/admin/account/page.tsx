@@ -28,7 +28,7 @@ export default function AdminAccountsPage() {
 
   // ✅ State สำหรับควบคุม Pop-up บัญชีผู้ดูแลระบบ
   const [selectedAdmin, setSelectedAdmin] = useState<any | null>(null);
-  
+  const [selectedUser, setSelectedUser] = useState<any | null>(null);
   // ✅ State สำหรับจัดการการแก้ไขชื่อใน Pop-up
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
@@ -124,7 +124,7 @@ export default function AdminAccountsPage() {
     if (!ok) return;
 
     await deleteDoc(doc(db, "users", user.uid));
-    
+
     if (selectedAdmin?.uid === user.uid) {
       setSelectedAdmin(null);
     }
@@ -319,7 +319,7 @@ export default function AdminAccountsPage() {
                       <div style={actionWrap}>
                         <button
                           style={viewBtn}
-                          onClick={() => router.push(`/admin/add-location/${u.uid}`)}
+                          onClick={() => setSelectedUser(u)}
                         >
                           ดูข้อมูล
                         </button>
@@ -365,14 +365,14 @@ export default function AdminAccountsPage() {
       {selectedAdmin && (
         <div style={modalOverlay} onClick={() => setSelectedAdmin(null)}>
           <div style={modalContent} onClick={(e) => e.stopPropagation()}>
-            
+
             <button style={modalCloseBtn} onClick={() => setSelectedAdmin(null)}>×</button>
-            
+
             <div style={modalBody}>
               <h3 style={{ margin: "0 0 20px 0", textAlign: "center", color: "#614124" }}>
                 ข้อมูลผู้ดูแลระบบ {selectedAdmin.uid === currentAdminUID && "(บัญชีของคุณ)"}
               </h3>
-              
+
               {/* รูปโปรไฟล์แอดมินตามตัวอักษรแรกของอีเมล */}
               <div style={avatarWrapper}>
                 {selectedAdmin.profileImage ? (
@@ -390,8 +390,8 @@ export default function AdminAccountsPage() {
                   <label style={infoLabel}>ชื่อผู้ดูแลระบบ</label>
                   {/* ✅ แก้ไข: เปลี่ยนจากไอคอนดินสอเป็นปุ่มข้อความ "แก้ไขชื่อ" ที่ดูเป็นทางการและมีสไตล์ขึ้น */}
                   {!isEditing && (
-                    <button 
-                      style={editNameTextBtn} 
+                    <button
+                      style={editNameTextBtn}
                       onClick={() => {
                         setEditName(selectedAdmin.name || "");
                         setIsEditing(true);
@@ -401,7 +401,7 @@ export default function AdminAccountsPage() {
                     </button>
                   )}
                 </div>
-                
+
                 {isEditing ? (
                   <div style={{ display: "flex", gap: 6, marginTop: 4 }}>
                     <input
@@ -431,8 +431,8 @@ export default function AdminAccountsPage() {
               {/* ปุ่มลบบัญชี */}
               <div style={{ marginTop: 30, display: "flex", justifyContent: "center" }}>
                 {selectedAdmin.uid !== currentAdminUID ? (
-                  <button 
-                    style={{ ...deleteBtn, padding: "10px 24px", width: "100%", fontSize: 14 }} 
+                  <button
+                    style={{ ...deleteBtn, padding: "10px 24px", width: "100%", fontSize: 14 }}
                     onClick={() => confirmDelete(selectedAdmin)}
                   >
                     ลบบัญชีผู้ดูแลระบบรายนี้
@@ -444,6 +444,98 @@ export default function AdminAccountsPage() {
                 )}
               </div>
 
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedUser && (
+        <div style={modalOverlay} onClick={() => setSelectedUser(null)}>
+          <div style={modalContent} onClick={(e) => e.stopPropagation()}>
+            <button style={modalCloseBtn} onClick={() => setSelectedUser(null)}>
+              ×
+            </button>
+
+            <div style={modalBody}>
+              <h3 style={{ margin: "0 0 20px 0", textAlign: "center", color: "#614124" }}>
+                ข้อมูลบัญชี
+              </h3>
+
+              <div style={avatarWrapper}>
+                {selectedUser.profileImage ? (
+                  <img
+                    src={selectedUser.profileImage}
+                    alt="Profile"
+                    style={avatarImg}
+                  />
+                ) : (
+                  <div style={avatarFallback}>
+                    {selectedUser.email ? selectedUser.email[0].toUpperCase() : "U"}
+                  </div>
+                )}
+              </div>
+
+              <div style={infoGroup}>
+                <label style={infoLabel}>ชื่อ</label>
+                <div style={infoValue}>{selectedUser.name || "-"}</div>
+              </div>
+
+              <div style={infoGroup}>
+                <label style={infoLabel}>อีเมล</label>
+                <div style={infoValue}>{selectedUser.email || "-"}</div>
+              </div>
+
+              <div style={infoGroup}>
+                <label style={infoLabel}>บทบาท</label>
+                <div style={infoValue}>
+                  {selectedUser.role === "merchant" ? "ผู้ประกอบการ" : "ผู้ใช้งาน"}
+                </div>
+              </div>
+
+              <div style={infoGroup}>
+                <label style={infoLabel}>สถานะ</label>
+                <div style={infoValue}>
+                  {selectedUser.status === "banned" ? "🔴 ระงับบัญชี" : "🟢 บัญชีใช้งานได้"}
+                </div>
+              </div>
+
+              <div style={infoGroup}>
+                <label style={infoLabel}>วันที่สมัคร</label>
+                <div style={infoValue}>
+                  {selectedUser.createdAt
+                    ? new Date(selectedUser.createdAt.seconds * 1000).toLocaleDateString("th-TH")
+                    : "-"}
+                </div>
+              </div>
+
+              <div style={infoGroup}>
+                <label style={infoLabel}>UID ระบบ</label>
+                <div style={{ ...infoValue, fontSize: 11, color: "#888" }}>
+                  {selectedUser.uid}
+                </div>
+              </div>
+
+              <div style={{ marginTop: 24, display: "flex", gap: 10 }}>
+                <button
+                  style={{ ...banBtn, flex: 1 }}
+                  onClick={() => {
+                    handleBan(selectedUser);
+                    setSelectedUser(null);
+                  }}
+                >
+                  {selectedUser.status === "banned" ? "Unban" : "Ban"}
+                </button>
+
+                <button
+                  style={{ ...deleteBtn, flex: 1 }}
+                  onClick={() => {
+                    confirmDelete(selectedUser);
+                    setSelectedUser(null);
+                  }}
+                >
+                  ลบบัญชี
+                </button>
+              </div>
             </div>
           </div>
         </div>
