@@ -49,13 +49,13 @@ background-image: url('/photo/background.jpg'); /* 🔥 ใส่รูป */
       <div
         className="pageWrap"
         style={{
-            minHeight: "100vh",
-            background: "#fff",
-            fontFamily: "'Inter', sans-serif",
-            display: "flex",
-            flexDirection: "column",
+          minHeight: "100vh",
+          background: "#fff",
+          fontFamily: "'Inter', sans-serif",
+          display: "flex",
+          flexDirection: "column",
         }}
-        >
+      >
         {/* back */}
         <div style={{ padding: "16px 20px 0" }}>
           <button
@@ -176,17 +176,17 @@ background-image: url('/photo/background.jpg'); /* 🔥 ใส่รูป */
           </div>
 
           {/* menu */}
-          <MenuRow 
-            icon="material-symbols:history-rounded"  
+          <MenuRow
+            icon="material-symbols:history-rounded"
             label="ประวัติการเช็กอิน"
             onClick={() => router.push("/checkinhistory")}
-            />
-          <MenuRow 
-            icon="tabler:heart" 
+          />
+          <MenuRow
+            icon="tabler:heart"
             label="รายการโปรด"
             onClick={() => router.push("/favourite")}
-            />
-          <MenuRow icon="tabler:activity" label="กิจกรรมของคุณ" />
+          />
+          {/* <MenuRow icon="tabler:activity" label="กิจกรรมของคุณ" /> */}
 
           {/* spin */}
           <div
@@ -341,13 +341,13 @@ background-image: url('/photo/background.jpg'); /* 🔥 ใส่รูป */
 function MenuRow({ icon, label, onClick }: { icon: string; label: string; onClick?: () => void }) {
   return (
     <div
-    onClick={onClick}
+      onClick={onClick}
       style={{
         display: "flex",
         justifyContent: "space-between",
         alignItems: "center",
         padding: "16px 0",
-        cursor:"pointer"
+        cursor: "pointer"
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 14 }}>

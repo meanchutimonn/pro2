@@ -46,7 +46,7 @@ export default function ReportPage() {
     );
 
     // 🔥 MAP REVIEW
-    const map:any = {};
+    const map: any = {};
 
     reviewSnap.docs.forEach((doc) => {
       const data = doc.data();
@@ -132,10 +132,10 @@ export default function ReportPage() {
 
       <div className="content">
         <h1></h1>
-        
+
         {/* ✅ เพิ่มข้อความ Review Analytics ด้านบนตารางสถิติ */}
         <h2 style={{ fontSize: "20px", fontWeight: 700, margin: "10px 0 20px 0", color: "#333" }}>
-          สถิติการรีวิว
+          ผลวิเคราะห์การรีวิว
         </h2>
 
         {/* 📊 STATS */}
@@ -155,7 +155,7 @@ export default function ReportPage() {
         <div className="topGrid">
           {/* ฝั่งซ้าย: รีวิวเยอะที่สุด */}
           <div className="card">
-            <h3>🏆 ร้านที่มียอดรีวิวเยอะที่สุด</h3>
+            <h3>🏆 ร้านค้าที่มียอดรีวิวสูง</h3>
             {topReviewed.map((r, i) => (
               <div key={i} className="rankItem">
                 <b>{i + 1}. {r.name}</b>
@@ -169,7 +169,7 @@ export default function ReportPage() {
 
           {/* ✅ ฝั่งขวา: แก้ไขเป็น ร้านที่มียอดรีวิวน้อยที่สุด */}
           <div className="card">
-            <h3>📉 ร้านที่มียอดรีวิวน้อยที่สุด</h3>
+            <h3>📉 ร้านค้าที่มียอดรีวิวต่ำ</h3>
             {leastReviewed.map((r, i) => (
               <div key={i} className="rankItem">
                 <b>{i + 1}. {r.name}</b>
