@@ -12,6 +12,7 @@ import {
 } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { TripStop } from "../components/TripDetailPage";
+import { getReviews } from "@/lib/reviewService";
 
 // ── Palette ────────────────────────────────────────────────────────────────────
 const W = {
@@ -98,6 +99,7 @@ function StopRow({
   onMapClick,
   userLoc,
   cafes,
+  reviewStat,
 }: {
   stop: TripStop;
   isChecked: boolean;
@@ -105,6 +107,10 @@ function StopRow({
   onMapClick: () => void;
   userLoc: { lat: number; lng: number } | null;
   cafes: any[];
+  reviewStat?: {
+    avg: number;
+    count: number;
+  };
 }) {
   const router = useRouter();
 
@@ -155,7 +161,20 @@ function StopRow({
         <div style={{ fontSize: 15, fontWeight: 800, color: W.text, marginBottom: 4 }}>{stop.name}</div>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
           <Icon icon="mdi:star" width="14" height="14" color="#F3BC00" />
-          <span style={{ fontSize: 13, fontWeight: 700, color: W.text }}>{stop.rating}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Icon
+                key={i}
+                icon="mdi:star"
+                width="14"
+                height="14"
+                color={i <= (reviewStat?.avg || 0) ? "#F3BC00" : "#ccc"}
+              />
+            ))}
+            <span style={{ fontSize: 13, fontWeight: 700, color: W.text }}>
+              {(reviewStat?.avg || 0).toFixed(1)} ({reviewStat?.count || 0} รีวิว)
+            </span>
+          </div>
           <span style={{ color: "#D0D0D0", fontSize: 13, margin: "0 2px" }}>|</span>
           <span style={{ fontSize: 13, color: W.muted }}>{displayDistance}</span>
         </div>
@@ -200,6 +219,11 @@ export default function MissionPage() {
   // ── Firestore mission state ────────────────────────────────────────────────
   const [activeMission, setActiveMission] = useState<TripDetail | null>(null);
   const [missionLoading, setMissionLoading] = useState(true);
+
+  const [reviewStats, setReviewStats] = useState<Record<string, {
+    avg: number;
+    count: number;
+  }>>({});
 
   const [randomImages, setRandomImages] = useState<{
     temple: string | null;
@@ -260,32 +284,39 @@ export default function MissionPage() {
     if (!activeMission) return;
 
     const auth = getAuth();
+
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) return;
 
-      const missionStopIds = new Set(
-        activeMission.stops.map((s) => getStopId(s))
+      const missionSnap = await getDoc(doc(db, "userMissions", user.uid));
+
+      if (!missionSnap.exists()) {
+        setHistoryIds(new Set());
+        return;
+      }
+
+      const missionData = missionSnap.data();
+
+      if (
+        missionData.status !== "active" &&
+        missionData.status !== "completed"
+      ) {
+        setHistoryIds(new Set());
+        return;
+      }
+
+      if (String(missionData.tripId) !== String(activeMission.id)) {
+        setHistoryIds(new Set());
+        return;
+      }
+
+      const checkedIds = missionData.checkedLocationIds || [];
+
+      setHistoryIds(
+        new Set(checkedIds.map((id: any) => String(id).trim()))
       );
-
-      const q = query(
-        collection(db, "checkins"),
-        where("userId", "==", user.uid)
-      );
-      const snap = await getDocs(q);
-      const visited = new Set<string>();
-
-      snap.forEach((docSnap) => {
-        const data = docSnap.data();
-        const locId = String(
-          data.locationId || data.location_id || data.merchantId || ""
-        ).trim();
-        if (locId && missionStopIds.has(locId)) {
-          visited.add(locId);
-        }
-      });
-
-      setHistoryIds(visited);
     });
+
     return () => unsub();
   }, [activeMission]);
 
@@ -382,6 +413,37 @@ export default function MissionPage() {
     setShowMap(false);
     setActiveTab("all");
   };
+
+  useEffect(() => {
+    const loadReviewStats = async () => {
+      if (!activeMission || cafes.length === 0) return;
+
+      const stats: Record<string, { avg: number; count: number }> = {};
+
+      await Promise.all(
+        activeMission.stops.map(async (stop) => {
+          const cafeData = cafes.find((c) => c.locationName === stop.name);
+          if (!cafeData?.id) return;
+
+          const reviews = await getReviews(cafeData.id);
+
+          const avg =
+            reviews.length > 0
+              ? reviews.reduce((sum: number, r: any) => sum + Number(r.rating || 0), 0) / reviews.length
+              : 0;
+
+          stats[stop.name] = {
+            avg,
+            count: reviews.length,
+          };
+        })
+      );
+
+      setReviewStats(stats);
+    };
+
+    loadReviewStats();
+  }, [activeMission, cafes]);
 
   // ── Map view ──────────────────────────────────────────────────────────────
   if (showMap && activeMission) {
@@ -565,6 +627,7 @@ export default function MissionPage() {
                           onMapClick={() => setShowMap(true)}
                           userLoc={userLoc}
                           cafes={cafes}
+                          reviewStat={reviewStats[stop.name]}
                         />
                       ))}
                     </div>

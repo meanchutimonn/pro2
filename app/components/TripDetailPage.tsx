@@ -10,6 +10,7 @@ import {
   addDoc
 } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { getReviews } from "@/lib/reviewService";
 
 // ── Palette ────────────────────────────────────────────────────────────────────
 const W = {
@@ -113,7 +114,8 @@ function StopRow({
   isChecked,
   getCafeId,
   userLoc,
-  cafes
+  cafes,
+  reviewStat,
 }: {
   stop: TripStop;
   trip: TripDetail;
@@ -121,11 +123,22 @@ function StopRow({
   getCafeId: (name: string) => string | undefined;
   userLoc: { lat: number; lng: number } | null;
   cafes: any[];
+  reviewStat?: {
+    avg: number;
+    count: number;
+  };
 }) {
   const router = useRouter();
 
   // หาพิกัดร้านจากข้อมูลที่ดึงมาจาก Firebase
   const cafeData = cafes.find(c => c.locationName === stop.name);
+
+  const displayRating =
+    cafeData?.rating ||
+    cafeData?.averageRating ||
+    stop.rating ||
+    0;
+
   let displayDistance = stop.distance || "0.0 km"; // ค่าเริ่มต้นถ้ายังโหลดตำแหน่งไม่เสร็จ
 
   if (userLoc && cafeData?.latitude && cafeData?.longitude) {
@@ -212,8 +225,22 @@ function StopRow({
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", textAlign: "left", alignItems: "flex-start" }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: W.text, marginBottom: 4, width: "100%" }}>{stop.name}</div>
         <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6 }}>
-          <Icon icon="mdi:star" width="16" height="16" color="#F3BC00" />
-          <span style={{ fontSize: 13, fontWeight: 700, color: W.text }}>{stop.rating}</span>
+          {/* <Icon icon="mdi:star" width="16" height="16" color="#F3BC00" /> */}
+          <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
+            {[1, 2, 3, 4, 5].map((i) => (
+              <Icon
+                key={i}
+                icon="mdi:star"
+                width="14"
+                height="14"
+                color={i <= (reviewStat?.avg || 0) ? "#F3BC00" : "#ccc"}
+              />
+            ))}
+          </div>
+
+          <span style={{ fontSize: 13, fontWeight: 700, color: W.text }}>
+            {(reviewStat?.avg || 0).toFixed(1)} ({reviewStat?.count || 0} รีวิว)
+          </span>
           <span style={{ color: "#D0D0D0", fontSize: 13, margin: "0 2px" }}>|</span>
           <span style={{ fontSize: 13, color: W.muted }}>{displayDistance}</span>
         </div>
@@ -247,7 +274,10 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
   const [cafes, setCafes] = useState<any[]>([]);
   const [historyIds, setHistoryIds] = useState<Set<string>>(new Set());
   const [showMap, setShowMap] = useState(false);
-
+  const [reviewStats, setReviewStats] = useState<Record<string, {
+    avg: number;
+    count: number;
+  }>>({});
   // ── sync activeTab จาก Firestore ───────────────────────────────────────────
   useEffect(() => {
     const auth = getAuth();
@@ -327,6 +357,37 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
 
     return () => unsubscribe();
   }, [trip.id]);
+
+  useEffect(() => {
+    const loadReviewStats = async () => {
+      if (cafes.length === 0 || !trip?.stops) return;
+
+      const stats: Record<string, { avg: number; count: number }> = {};
+
+      await Promise.all(
+        trip.stops.map(async (stop) => {
+          const cafeData = cafes.find(c => c.locationName === stop.name);
+          if (!cafeData?.id) return;
+
+          const reviews = await getReviews(cafeData.id);
+
+          const avg =
+            reviews.length > 0
+              ? reviews.reduce((sum: number, r: any) => sum + Number(r.rating || 0), 0) / reviews.length
+              : 0;
+
+          stats[stop.name] = {
+            avg,
+            count: reviews.length,
+          };
+        })
+      );
+
+      setReviewStats(stats);
+    };
+
+    loadReviewStats();
+  }, [cafes, trip]);
 
   const getCafeId = (stopName: string) => {
     const match = cafes.find(c => c.locationName === stopName);
@@ -472,6 +533,7 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
                     getCafeId={getCafeId}
                     userLoc={userLoc} // ✅ ส่งตำแหน่งไปคำนวณ
                     cafes={cafes}     // ✅ ส่งข้อมูลร้านไปหาพิกัด
+                    reviewStat={reviewStats[stop.name]}
                   />
                 ))}
               </div>
