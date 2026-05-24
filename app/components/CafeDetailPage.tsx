@@ -353,7 +353,7 @@ export default function CafeDetailPage({ cafe, onBack }: any) {
                 onClick={() => setExpanded(!expanded)}
                 style={{ color: "#999", cursor: "pointer" }}
               >
-                {expanded ? "น้อลง" : "อ่านต่อ"}
+                {expanded ? "น้อยลง" : "อ่านต่อ"}
               </span>
             </>
           )}
