@@ -24,15 +24,15 @@ export default function MatchThePairGame() {
   const [score, setScore] = useState(0);
 
   const addPointsToUser = async (points: number) => {
-  const user = getAuth().currentUser;
-  if (!user) return;
+    const user = getAuth().currentUser;
+    if (!user) return;
 
-  const ref = doc(db, "users", user.uid);
+    const ref = doc(db, "users", user.uid);
 
-  await updateDoc(ref, {
-    balance: increment(points),
-  });
-};
+    await updateDoc(ref, {
+      balance: increment(points),
+    });
+  };
 
   const [locationId, setLocationId] = useState("");
 
@@ -53,14 +53,14 @@ export default function MatchThePairGame() {
 
   const router = useRouter();
 
-const [confirmQuit, setConfirmQuit] = useState(false);
+  const [confirmQuit, setConfirmQuit] = useState(false);
 
-const [alreadyChecked, setAlreadyChecked] = useState(false);
+  const [alreadyChecked, setAlreadyChecked] = useState(false);
 
-const [showResult, setShowResult] = useState(false);
-const [finalTime, setFinalTime] = useState(0);
-const [finalScore, setFinalScore] = useState(0);
-const [isSaving, setIsSaving] = useState(false);
+  const [showResult, setShowResult] = useState(false);
+  const [finalTime, setFinalTime] = useState(0);
+  const [finalScore, setFinalScore] = useState(0);
+  const [isSaving, setIsSaving] = useState(false);
   const scoreRef = React.useRef(0); // เก็บแต้มแบบเรียลไทม์ไว้ใช้ตอนบันทึก
   const saveLock = React.useRef(false); // สวิตช์ล็อกกันบันทึกซ้ำ (หัวใจสำคัญ)
 
@@ -103,9 +103,9 @@ const [isSaving, setIsSaving] = useState(false);
   // 🚀 start + countdown
   const startGame = () => {
     if (cards.length === 0) {
-    alert("กำลังโหลดรูป กรุณารอสักครู่");
-    return;
-  }
+      alert("กำลังโหลดรูป กรุณารอสักครู่");
+      return;
+    }
     setShowStart(false);
     setCountdown(3);
 
@@ -132,99 +132,99 @@ const [isSaving, setIsSaving] = useState(false);
   };
 
   useEffect(() => {
-  const loadPoints = async () => {
+    const loadPoints = async () => {
+      if (!locationId) return;
+
+      const ref = doc(db, "locations", locationId);
+      const snap = await getDocs(collection(db, "locations"));
+
+      const location = snap.docs.find(doc => doc.id === locationId);
+      if (!location) return;
+
+      const data = location.data();
+
+      let pts = 10;
+
+      if (
+        data.category?.toLowerCase().trim() !== "temple" &&
+        data.category?.toLowerCase().trim() !== "market"
+      ) {
+        pts = Math.random() > 0.5 ? 5 : 10;
+      }
+
+      setLocationPoints(pts);
+    };
+
+    loadPoints();
+  }, [locationId]);
+
+  useEffect(() => {
+
     if (!locationId) return;
 
-    const ref = doc(db, "locations", locationId);
-    const snap = await getDocs(collection(db, "locations"));
+    const checkPlayed = async () => {
 
-    const location = snap.docs.find(doc => doc.id === locationId);
-    if (!location) return;
+      const user = getAuth().currentUser;
+      if (!user) return;
 
-    const data = location.data();
 
-    let pts = 10;
+      if (!locationId || !user) return;
 
-    if (
-      data.category?.toLowerCase().trim() !== "temple" &&
-      data.category?.toLowerCase().trim() !== "market"
-    ) {
-      pts = Math.random() > 0.5 ? 5 : 10;
-    }
+      const today = new Date().toLocaleDateString("en-CA", {
+        timeZone: "Asia/Bangkok"
+      });
 
-    setLocationPoints(pts);
-  };
+      const q = query(
+        collection(db, "game_records"),
+        where("user_id", "==", user.uid),
+        where("location_id", "==", locationId)
+      );
 
-  loadPoints();
-}, [locationId]);
+      const snap = await getDocs(q);
 
-useEffect(() => {
+      const alreadyPlayed = snap.docs.some(doc => {
+        const data = doc.data();
 
-  if (!locationId) return;
+        if (!data.createdAt) return false;
 
-  const checkPlayed = async () => {
+        let playDate = "";
 
-    const user = getAuth().currentUser;
-    if (!user) return;
+        if (data.createdAt?.toDate) {
+          playDate = data.createdAt.toDate().toLocaleDateString("en-CA", {
+            timeZone: "Asia/Bangkok"
+          });
+        } else {
+          playDate = new Date(data.createdAt).toLocaleDateString("en-CA", {
+            timeZone: "Asia/Bangkok"
+          });
+        }
 
-    
-    if (!locationId || !user) return;
+        return playDate === today;
+      });
 
-const today = new Date().toLocaleDateString("en-CA", {
-  timeZone: "Asia/Bangkok"
-});
+      if (alreadyPlayed && !alreadyChecked) {   // ✅ ย้ายมาเช็คตรงนี้แทน
+        setAlreadyChecked(true);
+        alert("คุณเล่นเกมนี้ไปแล้วในสัปดาห์นี้");
+        router.push("/scan");
+      }
+    };
 
-const q = query(
-  collection(db, "game_records"),
-  where("user_id", "==", user.uid),
-  where("location_id", "==", locationId)
-);
+    checkPlayed();
 
-const snap = await getDocs(q);
+  }, [locationId, alreadyChecked]);
 
-const alreadyPlayed = snap.docs.some(doc => {
-  const data = doc.data();
-
-  if (!data.createdAt) return false;
-
-  let playDate = "";
-
-  if (data.createdAt?.toDate) {
-    playDate = data.createdAt.toDate().toLocaleDateString("en-CA", {
-      timeZone: "Asia/Bangkok"
-    });
-  } else {
-    playDate = new Date(data.createdAt).toLocaleDateString("en-CA", {
-      timeZone: "Asia/Bangkok"
-    });
-  }
-
-  return playDate === today;
-});
-
-    if (alreadyPlayed && !alreadyChecked) {   // ✅ ย้ายมาเช็คตรงนี้แทน
-      setAlreadyChecked(true);
-      alert("คุณเล่นเกมนี้ไปแล้วในสัปดาห์นี้");
-      router.push("/scan");
-    }
-  };
-
-  checkPlayed();
-
-}, [locationId, alreadyChecked]);
-  
 
   // ⏱ timer
   useEffect(() => {
     // ถ้าเริ่มนับถอยหลังไปบันทึกแล้ว (saveLock) ให้หยุด Timer ทันที
-    if (!started || paused || saveLock.current) return; 
+    if (!started || paused || saveLock.current) return;
 
     const timer = setInterval(() => {
       setTime(prev => {
         if (prev <= 1) {
           clearInterval(timer);
           // เช็คอีกรอบก่อนเรียก เผื่อวินาทีนั้นเราจับคู่ครบพอดี
-          if (!saveLock.current) finishGame(false); 
+          if (!saveLock.current) finishGame(false);
           return 0;
         }
         return prev - 1;
@@ -256,7 +256,7 @@ const alreadyPlayed = snap.docs.some(doc => {
         // อัปเดตแต้มเข้า Ref ทันทีเพื่อให้ค่าล่าสุดพร้อมบันทึก
         const nextScore = score + 1;
         setScore(nextScore);
-        scoreRef.current = nextScore; 
+        scoreRef.current = nextScore;
 
         setTimeout(() => {
           setRemoved(prev => [...prev, a, b]);
@@ -269,10 +269,10 @@ const alreadyPlayed = snap.docs.some(doc => {
   };
 
   // 💾 save DB
-const finishGame = async (completed: boolean) => {
+  const finishGame = async (completed: boolean) => {
     // 🛑 บรรทัดนี้คือ "ยามเฝ้าประตู" ถ้ามีคนเข้าไปแล้ว คนที่สองจะโดนถีบออกทันที
-    if (saveLock.current) return; 
-    saveLock.current = true; 
+    if (saveLock.current) return;
+    saveLock.current = true;
 
     setIsSaving(true);
     setStarted(false);
@@ -280,13 +280,13 @@ const finishGame = async (completed: boolean) => {
     const user = getAuth().currentUser;
     const timeUsed = startTime ? Math.floor((Date.now() - startTime) / 1000) : 60;
 
-    
-    
+
+
     // บังคับคะแนน: ถ้าชนะ (completed=true) ให้เป็น 12 เสมอ ไม่ต้องรอ State
     const finalScoreValue = completed ? 12 : scoreRef.current;
     let rewardPoints = 0;
 
-rewardPoints = locationPoints; // 🎯 ได้เต็มเสมอ แค่เล่นก็ได้
+    rewardPoints = locationPoints; // 🎯 ได้เต็มเสมอ แค่เล่นก็ได้
 
     setFinalTime(timeUsed);
     setFinalScore(finalScoreValue);
@@ -321,17 +321,21 @@ rewardPoints = locationPoints; // 🎯 ได้เต็มเสมอ แค�
       </header>
 
       {/* STATS */}
-      <div className="flex border-b border-gray-200">
-        <div className="flex-1 flex flex-col items-center justify-center py-4">
+
+      <div className="relative flex border-b border-gray-200 min-h-[100px]">
+        <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
           <span className="text-sm font-bold">เวลาคงเหลือ</span>
-          <span className="text-3xl font-bold">
+          <div className="text-3xl font-bold">
             00 : {time.toString().padStart(2, "0")}
-          </span>
+          </div>
         </div>
 
-        <div className="bg-[#2D70B3] text-white px-8 flex flex-col items-center justify-center">
+        {/* RIGHT BOX */}
+        <div className="ml-auto bg-[#2D70B3] text-white px-8 py-4 flex flex-col items-center justify-center z-10">
           <span className="text-sm font-bold">คู่ที่จับได้</span>
-          <span className="text-3xl font-bold">{removed.length / 2}/12</span>
+          <span className="text-3xl font-bold">
+            {removed.length / 2}/12
+          </span>
         </div>
       </div>
 
@@ -382,7 +386,7 @@ rewardPoints = locationPoints; // 🎯 ได้เต็มเสมอ แค�
       {/* START POPUP */}
       {showStart && (
         <div className="overlay">
-            <div className="popup startBox">
+          <div className="popup startBox">
 
             <div className="close" onClick={() => router.push("/scan")}>✕</div>
 
@@ -390,16 +394,16 @@ rewardPoints = locationPoints; // 🎯 ได้เต็มเสมอ แค�
             <p>คุณมีโอกาสเพียงครั้งเดียวในวันนี้</p>
 
             <button
-            className="startBtn"
-            onClick={startGame}
-            disabled={cards.length === 0}
+              className="startBtn"
+              onClick={startGame}
+              disabled={cards.length === 0}
             >
-                เริ่มเกม
+              เริ่มเกม
             </button>
 
-            </div>
+          </div>
         </div>
-        )}
+      )}
 
       {/* COUNTDOWN */}
       {countdown && (
@@ -407,94 +411,94 @@ rewardPoints = locationPoints; // 🎯 ได้เต็มเสมอ แค�
       )}
 
       {confirmQuit && (
-    <div className="overlay">
-        <div className="popup danger">
+        <div className="overlay">
+          <div className="popup danger">
 
-        <h2>ออกจากเกม?</h2>
+            <h2>ออกจากเกม?</h2>
 
-        <p>
-            คุณจะไม่ได้รับคะแนน และจะไม่ถูกจัดอันดับ
-        </p>
+            <p>
+              คุณจะไม่ได้รับคะแนน และจะไม่ถูกจัดอันดับ
+            </p>
 
-        <button
-            className="dangerBtn"
-            onClick={() => {
-            router.push("/scan");
-            }}
-        >
-            ยืนยันออก
-        </button>
+            <button
+              className="dangerBtn"
+              onClick={() => {
+                router.push("/scan");
+              }}
+            >
+              ยืนยันออก
+            </button>
 
-        <button onClick={() => setConfirmQuit(false)}>
-            กลับไปเล่นต่อ
-        </button>
+            <button onClick={() => setConfirmQuit(false)}>
+              กลับไปเล่นต่อ
+            </button>
 
+          </div>
         </div>
-    </div>
-    )}
+      )}
 
       {/* PAUSE POPUP */}
       {paused && !confirmQuit && (
-  <div className="overlay">
-    <div className="popup pauseBox">
+        <div className="overlay">
+          <div className="popup pauseBox">
 
-      <div className="close" onClick={() => setPaused(false)}>✕</div>
+            <div className="close" onClick={() => setPaused(false)}>✕</div>
 
-      <h2>Pause</h2>
+            <h2>Pause</h2>
 
-      <button 
-        className="resumeBtn"
-        onClick={() => setPaused(false)}
-      >
-        resume
-      </button>
+            <button
+              className="resumeBtn"
+              onClick={() => setPaused(false)}
+            >
+              resume
+            </button>
 
-      <button 
-        className="quitBtn"
-        onClick={() => setConfirmQuit(true)}
-      >
-        quit
-      </button>
+            <button
+              className="quitBtn"
+              onClick={() => setConfirmQuit(true)}
+            >
+              quit
+            </button>
 
-    </div>
-  </div>
-)}
+          </div>
+        </div>
+      )}
 
-{showResult && (
-  <div className="overlay">
-    <div className="popup resultBox2">
+      {showResult && (
+        <div className="overlay">
+          <div className="popup resultBox2">
 
-      <h2 className="title">ยินดีด้วย!</h2>
+            <h2 className="title">ยินดีด้วย!</h2>
 
-      <div className="resultCard">
-        <p>⏱ เวลา</p>
-        <h1>{finalTime}s</h1>
-      </div>
+            <div className="resultCard">
+              <p>⏱ เวลา</p>
+              <h1>{finalTime}s</h1>
+            </div>
 
-      <div className="resultCard">
-        <p>🧠 จำนวนคู่</p>
-        <h1>{removed.length / 2}/12</h1>
-      </div>
+            <div className="resultCard">
+              <p>🧠 จำนวนคู่</p>
+              <h1>{removed.length / 2}/12</h1>
+            </div>
 
-      <div className="btnGroup">
-        <button
-          className="mainBtn"
-          onClick={() => router.push(`/leaderboard/${locationId}`)}
-        >
-          ดูอันดับ
-        </button>
+            <div className="btnGroup">
+              <button
+                className="mainBtn"
+                onClick={() => router.push(`/leaderboard/${locationId}`)}
+              >
+                ดูอันดับ
+              </button>
 
-        <button
-          className="subBtn"
-          onClick={() => router.push("/scan")}
-        >
-          กลับหน้าแรก
-        </button>
-      </div>
+              <button
+                className="subBtn"
+                onClick={() => router.push("/scan")}
+              >
+                กลับหน้าแรก
+              </button>
+            </div>
 
-    </div>
-  </div>
-)}
+          </div>
+        </div>
+      )}
 
       {/* STYLE */}
       <style jsx>{`

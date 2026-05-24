@@ -11,6 +11,7 @@ import {
   doc, getDoc, setDoc, serverTimestamp
 } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
+import { TripStop } from "../components/TripDetailPage";
 
 // ── Palette ────────────────────────────────────────────────────────────────────
 const W = {
@@ -42,18 +43,6 @@ function calculateDistance(
 }
 
 // ── Types ──────────────────────────────────────────────────────────────────────
-export interface TripStop {
-  id: number;
-  name: string;
-  location_id?: string;
-  locationId?: string;
-  cafeId?: string;
-  rating: number;
-  distance: string;
-  description: string;
-  image: string;
-  checked?: boolean;
-}
 
 export interface TripDetail {
   id: number;
@@ -305,9 +294,9 @@ export default function MissionPage() {
       try {
         const snap = await getDocs(collection(db, "locations"));
 
-        let templeImages: string[] = [];
-        let cafeImages: string[] = [];
-        let allImages: string[] = [];
+        const templeImages: string[] = [];
+        const cafeImages: string[] = [];
+        const allImages: string[] = [];
 
         snap.forEach((doc) => {
           const data = doc.data();
@@ -371,6 +360,18 @@ export default function MissionPage() {
         doc(db, "userMissions", user.uid),
         { status: "completed", completedAt: serverTimestamp() },
         { merge: true }
+      );
+
+      await setDoc(
+        doc(collection(db, "notifications")),
+        {
+          userId: user.uid,
+          title: "🎉 ภารกิจสำเร็จ",
+          message: `คุณทำภารกิจสำเร็จแล้ว ได้รับ ${activeMission?.points} คะแนน`,
+          type: "mission_complete",
+          createdAt: serverTimestamp(),
+          isRead: false,
+        }
       );
     }
     localStorage.removeItem("activeMission");

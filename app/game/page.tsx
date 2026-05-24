@@ -13,23 +13,23 @@ import { doc, getDoc } from "firebase/firestore";
 export default function GamePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
-const merchantId = searchParams.get("merchantId");
+  const merchantId = searchParams.get("merchantId");
 
-const [image, setImage] = useState("");
+  const [image, setImage] = useState("");
 
-useEffect(() => {
-  if (!merchantId) return;
+  useEffect(() => {
+    if (!merchantId) return;
 
-  const fetchData = async () => {
-    const snap = await getDoc(doc(db, "locations", merchantId));
+    const fetchData = async () => {
+      const snap = await getDoc(doc(db, "locations", merchantId));
 
-    if (snap.exists()) {
-      setImage(snap.data().mainImage);
-    }
-  };
+      if (snap.exists()) {
+        setImage(snap.data().mainImage);
+      }
+    };
 
-  fetchData();
-}, [merchantId]);
+    fetchData();
+  }, [merchantId]);
 
   return (
     <div className="page">
@@ -42,18 +42,18 @@ useEffect(() => {
 
         <h2>Game Center</h2>
       </div>
-{image && (
-  <img 
-    src={image} 
-    style={{
-      width: "100%",
-      height: 180,
-      objectFit: "cover",
-      borderRadius: 12,
-      marginBottom: 20
-    }}
-  />
-)}
+      {image && (
+        <img
+          src={image}
+          style={{
+            width: "100%",
+            height: 180,
+            objectFit: "cover",
+            borderRadius: 12,
+            marginBottom: 20
+          }}
+        />
+      )}
 
       {/* MENU */}
       <div className="menuCard" onClick={() => router.push(`/game/flip?merchantId=${merchantId}`)}>
@@ -87,10 +87,10 @@ useEffect(() => {
       <button
         className="checkinBtn"
         onClick={() => router.push("/scan")}
-                >
+      >
         เช็กอินเลย
-        </button>
-        <style jsx global>{`
+      </button>
+      <style jsx global>{`
     body{
 background-image: url('/photo/background.jpg'); /* 🔥 ใส่รูป */
   background-size: cover;       /* เต็มจอ */

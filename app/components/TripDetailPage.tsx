@@ -6,7 +6,8 @@ import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
 import {
   collection, getDocs, query, where,
-  doc, getDoc, setDoc, serverTimestamp
+  doc, getDoc, setDoc, serverTimestamp,
+  addDoc
 } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 
@@ -350,11 +351,33 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
           const user = auth.currentUser;
           if (user) {
             const missionRef = doc(db, "userMissions", user.uid);
+            const missionSnap = await getDoc(missionRef);
+
+            if (
+              missionSnap.exists() &&
+              missionSnap.data().status === "completed"
+            ) {
+              alert("คุณรับรางวัลภารกิจนี้ไปแล้ว");
+              return;
+            }
+
             await setDoc(
               missionRef,
               { status: "completed", completedAt: serverTimestamp() },
               { merge: true }
             );
+
+            await addDoc(collection(db, "notifications"), {
+              userId: user.uid,
+              title: "ภารกิจสำเร็จ 🎉",
+              body: `คุณทำภารกิจสำเร็จแล้ว ได้รับ ${trip.points} คะแนน`,
+              type: "mission_complete",
+              missionId: trip.id,
+              missionName: trip.title,
+              points: trip.points || 50,
+              read: false,
+              createdAt: serverTimestamp(),
+            });
           }
 
           // ── clear localStorage ────────────────────────────────────────

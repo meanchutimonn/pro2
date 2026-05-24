@@ -23,11 +23,11 @@ export default function SpinPage() {
 
   const rewards = [
     { label: "1", label2: "coupon", color: "#4a8fd4", weight: 2 },   // ฟ้า (ออกยาก)
-    { label: "no", label2: "point", color: "#c0a878", weight: 25 },
+    { label: "no", label2: "point", color: "#c0a878", weight: 0 },
     { label: "1", label2: "point", color: "#f0ede0", weight: 10 },
     { label: "2", label2: "point", color: "#f0c030", weight: 5 },    // เหลือง (ออกยาก)
     { label: "spin", label2: "again", color: "#7a5030", weight: 3 },  // น้ำตาลเข้ม (โคตรยาก)
-    { label: "no", label2: "point", color: "#ddd0b0", weight: 25 },
+    { label: "no", label2: "point", color: "#ddd0b0", weight: 0 },
     { label: "1", label2: "point", color: "#f0ede0", weight: 10 },
   ];
 
