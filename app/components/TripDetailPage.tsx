@@ -224,33 +224,111 @@ function StopRow({
       }} />
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", textAlign: "left", alignItems: "flex-start" }}>
         <div style={{ fontSize: 16, fontWeight: 800, color: W.text, marginBottom: 4, width: "100%" }}>{stop.name}</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5, marginBottom: 6 }}>
-          {/* <Icon icon="mdi:star" width="16" height="16" color="#F3BC00" /> */}
-          <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-            {[1, 2, 3, 4, 5].map((i) => (
-              <Icon
-                key={i}
-                icon="mdi:star"
-                width="14"
-                height="14"
-                color={i <= (reviewStat?.avg || 0) ? "#F3BC00" : "#ccc"}
-              />
-            ))}
+        <div
+          style={{
+            flex: 1,
+            minWidth: 0,
+            display: "flex",
+            flexDirection: "column",
+            textAlign: "left",
+            alignItems: "flex-start",
+          }}
+        >
+          {/* ชื่อสถานที่ */}
+          <div
+            style={{
+              fontSize: "clamp(14px, 4vw, 16px)",
+              fontWeight: 800,
+              color: W.text,
+              marginBottom: "clamp(2px, 1vw, 4px)",
+              width: "100%",
+              lineHeight: 1.3,
+              wordBreak: "break-word",
+            }}
+          >
+            {stop.name}
           </div>
 
-          <span style={{ fontSize: 13, fontWeight: 700, color: W.text }}>
-            {(reviewStat?.avg || 0).toFixed(1)} ({reviewStat?.count || 0} รีวิว)
-          </span>
-          <span style={{ color: "#D0D0D0", fontSize: 13, margin: "0 2px" }}>|</span>
-          <span style={{ fontSize: 13, color: W.muted }}>{displayDistance}</span>
+          {/* Rating + Distance row — wrap ได้บนหน้าจอเล็ก */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              flexWrap: "wrap",          // ← สำคัญ: ขึ้นบรรทัดใหม่เมื่อพื้นที่ไม่พอ
+              gap: "clamp(3px, 1.5vw, 5px)",
+              marginBottom: "clamp(4px, 1.5vw, 6px)",
+              rowGap: 4,
+            }}
+          >
+            {/* ดาว */}
+            <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+              {[1, 2, 3, 4, 5].map((i) => (
+                <Icon
+                  key={i}
+                  icon="mdi:star"
+                  width="clamp(11px, 3vw, 14px)"
+                  height="clamp(11px, 3vw, 14px)"
+                  color={i <= (reviewStat?.avg || 0) ? "#F3BC00" : "#ccc"}
+                />
+              ))}
+            </div>
+
+            {/* คะแนนและจำนวนรีวิว */}
+            <span
+              style={{
+                fontSize: "clamp(11px, 3vw, 13px)",
+                fontWeight: 700,
+                color: W.text,
+                whiteSpace: "nowrap",
+                flexShrink: 0,
+              }}
+            >
+              {(reviewStat?.avg || 0).toFixed(1)} ({reviewStat?.count || 0} รีวิว)
+            </span>
+
+            {/* Divider — ซ่อนได้เมื่อ wrap */}
+            <span
+              style={{
+                color: "#D0D0D0",
+                fontSize: "clamp(11px, 3vw, 13px)",
+                margin: "0 1px",
+                flexShrink: 0,
+                lineHeight: 1,
+              }}
+            >
+              |
+            </span>
+
+            {/* ระยะทาง */}
+            <span
+              style={{
+                fontSize: "clamp(11px, 3vw, 13px)",
+                color: W.muted,
+                whiteSpace: "nowrap",
+                flexShrink: 0,
+              }}
+            >
+              {displayDistance}
+            </span>
+          </div>
+
+          {/* คำอธิบาย */}
+          <div
+            style={{
+              fontSize: "clamp(11px, 3vw, 12px)",
+              color: W.muted,
+              lineHeight: 1.5,
+              overflow: "hidden",
+              display: "-webkit-box",
+              WebkitLineClamp: 2,
+              WebkitBoxOrient: "vertical" as const,
+              wordBreak: "break-word",
+            }}
+          >
+            {stop.description}
+          </div>
         </div>
-        <div style={{
-          fontSize: 12, color: W.muted, lineHeight: 1.4,
-          overflow: "hidden", display: "-webkit-box",
-          WebkitLineClamp: 2, WebkitBoxOrient: "vertical" as const,
-        }}>
-          {stop.description}
-        </div>
+
       </div>
       <div style={{
         background: isChecked ? W.green : W.pink,
