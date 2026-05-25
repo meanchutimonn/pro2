@@ -286,33 +286,52 @@ export default function CafeDetailPage({ cafe, onBack }: any) {
                       boxShadow: "0 4px 10px rgba(0,0,0,0.08)"
                     }}
                   >
+                    {/* แก้ responsive */}
                     {/* 👤 ชื่อ + ดาว */}
                     <div style={{
                       display: "flex",
                       justifyContent: "space-between",
                       alignItems: "center",
-                      marginBottom: 6
+                      gap: 8,
+                      marginBottom: 6,
+                      minWidth: 0
                     }}>
-                      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                        {/* avatar */}
+                      <div style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 10,
+                        minWidth: 0,
+                        flex: 1
+                      }}>
                         <div style={{
                           width: 35,
                           height: 35,
+                          minWidth: 35,
                           borderRadius: "50%",
                           background: "#6B4226"
                         }} />
 
-                        <b>{r.user_name}</b>
+                        <b style={{
+                          overflow: "hidden",
+                          textOverflow: "ellipsis",
+                          whiteSpace: "nowrap"
+                        }}>
+                          {r.user_name}
+                        </b>
                       </div>
 
                       {/* ⭐ ดาว */}
-                      <div style={{ display: "flex", gap: 2 }}>
+                      <div style={{
+                        display: "flex",
+                        gap: 1,
+                        flexShrink: 0
+                      }}>
                         {[1, 2, 3, 4, 5].map(i => (
                           <Icon
                             key={i}
                             icon="mdi:star"
                             color={i <= r.rating ? "#F3BC00" : "#ccc"}
-                            width={16}
+                            width={14}
                           />
                         ))}
                       </div>
@@ -512,9 +531,9 @@ export default function CafeDetailPage({ cafe, onBack }: any) {
             style={{
               position: "fixed",
               bottom: 10,
-              left: 0,
-              right: 0,
-              padding: "0 16px",
+              left: "50%",
+              transform: "translateX(-50%)",
+              width: "min(100% - 32px, 760px)",
               zIndex: 1000
             }}
           >
@@ -700,28 +719,26 @@ export default function CafeDetailPage({ cafe, onBack }: any) {
 
       </div>
 
-
+      {/* แก้ responsive */}
       <style jsx global>{`
-          body{
-background-image: url('/photo/background.jpg'); /* 🔥 ใส่รูป */
-  background-size: cover;       /* เต็มจอ */
-  background-position: center;  /* กลาง */
-  background-repeat: no-repeat; /* ไม่ซ้ำ */
+           body{
+background-image: url('/photo/background.jpg');
+  background-size: cover;      
+  background-position: center;
+  background-repeat: no-repeat;
 }
 
   /* mobile */
-  .pageWrap{
-    max-width:100%;
-    margin:0;
-  }
+  .pageWrap {
+      max-width: 760px;
+      overflow: hidden;
+    }
 
   /* desktop */
-  @media(min-width:1024px){
-    .pageWrap{
-      max-width:1100px;
-      margin:40px auto;
-      border-radius:20px 20px 0 0;
-      overflow:hidden;
+  @media (min-width: 1024px) {
+    .pageWrap {
+      max-width: 1100px;
+      margin: 40px auto;
     }
   }
     
