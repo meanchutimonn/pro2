@@ -162,16 +162,7 @@ function StopRow({
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
            <span>⭐ {reviewStat?.avg.toFixed(1)}</span>
                   <span style={{ color: "#aaa" }}>|</span>
-          <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
-            {[1, 2, 3, 4, 5].map((i) => (
-              <Icon
-                key={i}
-                icon="mdi:star"
-                width="14"
-                height="14"
-                color={i <= (reviewStat?.avg || 0) ? "#F3BC00" : "#ccc"}
-              />
-            ))}
+          
             <span style={{ fontSize: 13, fontWeight: 700, color: W.text }}>
               {(reviewStat?.avg || 0).toFixed(1)} ({reviewStat?.count || 0} รีวิว)
             </span>
@@ -179,7 +170,6 @@ function StopRow({
           <span style={{ color: "#D0D0D0", fontSize: 13, margin: "0 2px" }}>|</span>
           <span style={{ fontSize: 13, color: W.muted }}>{displayDistance}</span>
         </div>
-      </div>
 
       {/* ปุ่ม map */}
       <button
