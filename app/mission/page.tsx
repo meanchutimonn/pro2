@@ -165,8 +165,8 @@ function StopRow({
                   margin: "4px 0"}}>
             {(reviewStat?.avg || 0).toFixed(1)}
           </span>
-          <span style={{ fontSize: '13px', color: '#aaa'}}>|</span>
-          <span style={{ fontSize: 13, color: W.text }}>{displayDistance}</span>
+          <span style={{ fontSize: '13px', color: '#aaa', margin: '4px 0'}}>|</span>
+          <span style={{ fontSize: 13, color: W.text, gap: 8 , margin: '4px 0' }}>{displayDistance}</span>
         </div>
       </div>
 
