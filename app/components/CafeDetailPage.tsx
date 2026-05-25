@@ -825,4 +825,3 @@ const mapBtn = () => ({
   gap: 8,
 
 });
-
