@@ -160,17 +160,42 @@ function StopRow({
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", textAlign: "left" }}>
         <div style={{ fontSize: 15, fontWeight: 800, color: W.text, marginBottom: 4 }}>{stop.name}</div>
         {/* แถวแสดงผล คะแนน รีวิว และระยะทางแบบเรียงหน้ากระดาน */}
-        <div style={{ display: 'flex', alignItems: 'center' }}>
-          <span>⭐</span> <span style={{ fontSize: '13px', fontWeight: '800' ,gap: 8,
-                  margin: "4px 0"}}>
+        {/* ดาว */}
+        <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+          <span>⭐</span> <span style={{
+            fontSize: '13px', fontWeight: '800', gap: 8,
+            margin: "4px 0"
+          }}>
             {(reviewStat?.avg || 0).toFixed(1)}
           </span>
-          <span style={{ fontSize: '13px', color: '#aaa', margin: '4px 0'}}>|</span>
-          <span style={{ fontSize: 13, color: W.text, gap: 8 , margin: '4px 0' }}>{displayDistance}</span>
         </div>
-      </div>
 
-      {/* ปุ่ม map */}
+        {/* คะแนนและจำนวนรีวิว */}
+        {/* Divider — ซ่อนได้เมื่อ wrap */}
+        <span
+          style={{
+            color: "#aaa",
+            fontSize: "clamp(11px, 3vw, 13px)",
+            margin: '4px 0',
+            flexShrink: 0,
+            lineHeight: 1,
+          }}
+        >
+          |
+        </span>
+
+        {/* ระยะทาง */}
+        <span
+          style={{
+            fontSize: "clamp(13px, 3vw, 13px)",
+            color: W.text,
+            whiteSpace: "nowrap",
+            flexShrink: 0,
+          }}
+        >
+          {displayDistance}
+        </span>
+      </div>
       <button
         onClick={(e) => {
           e.stopPropagation();
