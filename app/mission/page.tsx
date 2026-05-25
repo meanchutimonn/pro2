@@ -161,10 +161,9 @@ function StopRow({
         <div style={{ fontSize: 15, fontWeight: 800, color: W.text, marginBottom: 4 }}>{stop.name}</div>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
            <span>⭐ {reviewStat?.avg.toFixed(1)}</span>
-           
-          </div>
-          <span style={{ color: "#D0D0D0", fontSize: 13, margin: "0 2px" }}>|</span>
+            <span style={{ color: "#D0D0D0", fontSize: 13, margin: "0 2px" }}>|</span>
           <span style={{ fontSize: 13, color: W.muted }}>{displayDistance}</span>
+          </div>
         </div>
 
       {/* ปุ่ม map */}
