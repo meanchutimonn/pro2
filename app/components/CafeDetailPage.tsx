@@ -469,7 +469,7 @@ export default function CafeDetailPage({ cafe, onBack }: any) {
                 </div>
               )}
 
-              {/* MAP (ของเดิมหนู ใช้ได้อยู่แล้ว) */}
+              {/* MAP (ของเดิมใช้ได้อยู่แล้ว) */}
               <button
                 onClick={() => {
                   const url = cafe.googleMap?.match(/src="([^"]+)"/)?.[1];
