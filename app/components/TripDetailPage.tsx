@@ -107,7 +107,7 @@ function RouteIllustration({ onClick }: { onClick?: () => void }) {
   );
 }
 
-// ── 2. ปรับ StopRow ให้รับ userLoc และ cafes เพื่อคำนวณระยะทาง ──────────────────────
+// ── แก้ ปรับ StopRow ให้รับ userLoc และ cafes เพื่อคำนวณระยะทาง ──────────────────────
 function StopRow({
   stop,
   trip,
@@ -160,7 +160,7 @@ function StopRow({
           return;
         }
 
-        // ── ดึง active mission จาก Firestore ──────────────────────────
+        // ── แก้ ดึง active mission จาก Firestore ──────────────────────────
         const missionRef = doc(db, "userMissions", user.uid);
         const missionSnap = await getDoc(missionRef);
         const missionData = missionSnap.exists() ? missionSnap.data() : null;
@@ -181,7 +181,7 @@ function StopRow({
           return;
         }
 
-        // ── ถ้า mission นี้ยังไม่ได้ activate → confirm ก่อน ─────────
+        // ── แก้ mission นี้ยังไม่ได้ activate → confirm ก่อน ─────────
         const isNewMission =
           !missionData || String(missionData.tripId) !== String(trip.id);
 
@@ -201,7 +201,7 @@ function StopRow({
           });
         }
 
-        // ── sync localStorage ด้วย (เพื่อ TripMapPage ที่ยังอ่านอยู่) ──
+        // ── แก้ sync localStorage ด้วย (เพื่อ TripMapPage ที่ยังอ่านอยู่) ──
         localStorage.setItem("activeMission", JSON.stringify(trip));
         localStorage.setItem("activeMissionId", String(trip.id));
         localStorage.setItem("activeMissionCompleted", "false");
@@ -407,7 +407,7 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
         onHome={onHome ?? onBack}
         onMapClose={() => setShowMap(false)}
         onClaim={async () => {
-          // ── อัปเดต Firestore ──────────────────────────────────────────
+          // แก้ อัปเดต Firestore ──────────────────────────────────────────
           const auth = getAuth();
           const user = auth.currentUser;
           if (user) {

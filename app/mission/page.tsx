@@ -279,7 +279,7 @@ export default function MissionPage() {
     }
   }, []);
 
-  // ── โหลด checkin history กรองเฉพาะ stop ของ mission ───────────────────────
+  // แก้โหลดภารกิจที่ผู้ใช้กำลังทำอยู่จาก Firestore
   useEffect(() => {
     if (!activeMission) return;
 
@@ -310,6 +310,7 @@ export default function MissionPage() {
         return;
       }
 
+      // ดึง progress ของ mission จาก checkedLocationIds
       const checkedIds = missionData.checkedLocationIds || [];
 
       setHistoryIds(
@@ -382,7 +383,7 @@ export default function MissionPage() {
     ? activeMission.stops.filter((s) => historyIds.has(getStopId(s))).length
     : 0;
 
-  // ── onClaim ───────────────────────────────────────────────────────────────
+  // แก้ อัปเดต mission เป็น completed และสร้าง notification แจ้งผู้ใช้ว่าได้รับคะแนน
   const handleClaim = async () => {
     const auth = getAuth();
     const user = auth.currentUser;
@@ -523,7 +524,7 @@ export default function MissionPage() {
           {/* Content */}
           <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
 
-            {/* ── Tab: ภารกิจของฉัน ─────────────────────────────────── */}
+            {/* แก้แสดงเฉพาะ activeMission และสถานที่ทั้งหมดในภารกิจนั้น  */}
             {activeTab === "my" && (
               <>
                 {missionLoading && (
@@ -636,7 +637,7 @@ export default function MissionPage() {
               </>
             )}
 
-            {/* ── Tab: ภารกิจทั้งหมด ────────────────────────────────── */}
+            {/* แก้ แสดงรายการ Trip x2 ทั้งหมด ไม่เกี่ยวกับ mission ที่ active อยู่ */}
             {activeTab === "all" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 {allTrips.map((item) => {

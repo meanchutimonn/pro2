@@ -38,7 +38,7 @@ interface TripMapPageProps {
   onClaim: () => void;
 }
 
-// ✅ เรียง stops ตามลำดับเช็คอิน แล้วต่อด้วยที่ยังไม่เช็ค
+// แก้ เรียง stops ตามลำดับเช็คอิน แล้วต่อด้วยที่ยังไม่เช็ค
 function buildNodes(
   stops: TripStop[],
   historyIds: Set<string>,
@@ -46,7 +46,7 @@ function buildNodes(
 ): StopNode[] {
   const total = stops.length;
   const layoutY = (i: number) => 120 + (total - 1 - i) * 140;
-  // ✅ ห่างจากขอบ: 28% และ 62%
+  // ห่างจากขอบ: 28% และ 62%
   const xPos = (i: number): number => (i % 2 === 0 ? 28 : 62);
   const getId = (s: any) =>
     String(s.location_id || s.locationId || s.id);
@@ -260,8 +260,8 @@ export default function TripMapPage({
   const [loading, setLoading] = useState(true);
   const mapRef = useRef<HTMLDivElement>(null);
 
-  // ✅ Firebase: ดึง checkins เรียงตาม createdAt
-  // ✅ Firebase: ดึง checkins และกรองเอาเฉพาะวันแรกสุดของแต่ละที่
+  // แก้ Firebase: ดึง checkins เรียงตาม createdAt
+  // แก้ Firebase: ดึง checkins และกรองเอาเฉพาะวันแรกสุดของแต่ละที่
   useEffect(() => {
     const auth = getAuth();
 

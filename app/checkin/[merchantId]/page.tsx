@@ -101,14 +101,14 @@ export default function CheckinPage() {
           return;
         }
 
-        // ── ดึง active mission ก่อน บันทึก checkin ──────────────────
+        // ── แก้ ดึง active mission ก่อน บันทึก checkin ──────────────────
         const missionRefPre = doc(db, "userMissions", user.uid);
         const missionSnapPre = await getDoc(missionRefPre);
         const activeTripId = missionSnapPre.exists() && missionSnapPre.data().status === "active"
           ? missionSnapPre.data().tripId
           : null;
 
-        // ── บันทึก checkin (รวม tripId ของ mission ที่ active) ──────────
+        // ── แก้ บันทึก checkin (รวม tripId ของ mission ที่ active) ──────────
         await setDoc(ref, {
           userId: user.uid,
           merchantId,
@@ -135,7 +135,7 @@ export default function CheckinPage() {
           { merge: true }
         );
 
-        // ── update checkedLocationIds ใน active mission ────────────
+        // ── แก้ update checkedLocationIds ใน active mission ────────────
         if (missionSnapPre.exists()) {
           const missionData = missionSnapPre.data();
           if (missionData.status === "active") {
