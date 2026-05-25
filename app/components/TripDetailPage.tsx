@@ -217,13 +217,16 @@ function StopRow({
         cursor: "pointer"
       }}
     >
+      {/* 1. รูปภาพสถานที่ */}
       <div style={{
         width: 85, height: 85, borderRadius: 15,
         background: `url('${stop.image}') center/cover #eee`,
         flexShrink: 0, boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
       }} />
+      {/* 2. รายละเอียดข้อความ (ลบส่วนซ้ำซ้อนออกแล้ว) */}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", textAlign: "left", alignItems: "flex-start" }}>
-        <div style={{ fontSize: 16, fontWeight: 800, color: W.text, marginBottom: 4, width: "100%" }}>{stop.name}</div>
+
+        {/*<div style={{ fontSize: 16, fontWeight: 800, color: W.text, marginBottom: 4, width: "100%" }}>{stop.name}</div>*/}
         <div
           style={{
             flex: 1,
