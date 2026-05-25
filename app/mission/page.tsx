@@ -160,7 +160,8 @@ function StopRow({
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", textAlign: "left" }}>
         <div style={{ fontSize: 15, fontWeight: 800, color: W.text, marginBottom: 4 }}>{stop.name}</div>
         <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
-          <Icon icon="mdi:star" width="14" height="14" color="#F3BC00" />
+           <span>⭐ {reviewStat?.avg.toFixed(1)}</span>
+                  <span style={{ color: "#aaa" }}>|</span>
           <div style={{ display: "flex", alignItems: "center", gap: 2 }}>
             {[1, 2, 3, 4, 5].map((i) => (
               <Icon
