@@ -3,14 +3,13 @@
 import { useRouter } from "next/navigation";
 import { Icon } from "@iconify/react";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react"; // เพิ่ม Suspense ตรงนี้
 import { useSearchParams } from "next/navigation";
 import { db } from "@/lib/firebase";
 import { doc, getDoc } from "firebase/firestore";
 
-
-
-export default function GamePage() {
+// 1. แยกเนื้อหาหลักออกมาเป็น Component ย่อย
+function GameContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const merchantId = searchParams.get("merchantId");
@@ -189,5 +188,18 @@ background-image: url('/photo/background.jpg'); /* 🔥 ใส่รูป */
 }
       `}</style>
     </div>
+  );
+}
+
+// 2. ตัว Page หลัก ทำหน้าที่ครอบด้วย Suspense Boundary เพื่อให้รองรับการทำ Prerender บน Vercel
+export default function GamePage() {
+  return (
+    <Suspense fallback={
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#fff' }}>
+        <p style={{ fontSize: '16px', color: '#6b4729', fontWeight: 'bold' }}>กำลังโหลดหน้าเกม...</p>
+      </div>
+    }>
+      <GameContent />
+    </Suspense>
   );
 }

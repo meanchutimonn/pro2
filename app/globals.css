@@ -1,6 +1,8 @@
 @import "tailwindcss";
 
 :root {
+  /* ล็อกสไตล์ให้เป็น Light Mode ตลอดเวลา */
+  color-scheme: light;
   --background: #ffffff;
   --foreground: #171717;
 }

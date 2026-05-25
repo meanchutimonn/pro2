@@ -25,7 +25,7 @@ export default function MerchantQRPage() {
 
   if (!uid) return <p style={{ padding: 40 }}>กำลังโหลด...</p>;
 
-  const checkinUrl = `${window.location.origin}/checkin/${uid}`;
+ const checkinUrl = `https://tracesampharn.com/checkin/${uid}`;
 
   return (
     <div style={containerStyle}>
