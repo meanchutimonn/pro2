@@ -265,15 +265,13 @@ function StopRow({
           >
             {/* ดาว */}
             <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Icon
-                  key={i}
-                  icon="mdi:star"
-                  width="clamp(11px, 3vw, 14px)"
-                  height="clamp(11px, 3vw, 14px)"
-                  color={i <= (reviewStat?.avg || 0) ? "#F3BC00" : "#ccc"}
-                />
-              ))}
+               <span>⭐</span> <span style={{ fontSize: '13px', fontWeight: '800' ,gap: 8,
+                  margin: "4px 0"}}>
+            {(reviewStat?.avg || 0).toFixed(1)}
+          </span>  
+          <span style={{ fontSize: '13px', color: '#aaa', margin: '4px 0'}}>|</span>
+          <span style={{ fontSize: 13, color: W.text, gap: 8 , margin: '4px 0' }}>{displayDistance}</span>
+            
             </div>
 
             {/* คะแนนและจำนวนรีวิว */}
