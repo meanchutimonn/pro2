@@ -270,27 +270,13 @@ function StopRow({
             {(reviewStat?.avg || 0).toFixed(1)}
           </span>  
           <span style={{ fontSize: '13px', color: '#aaa', margin: '4px 0'}}>|</span>
-          <span style={{ fontSize: 13, color: W.text, gap: 8 , margin: '4px 0' }}>{displayDistance}</span>
-            
             </div>
 
             {/* คะแนนและจำนวนรีวิว */}
-            <span
-              style={{
-                fontSize: "clamp(11px, 3vw, 13px)",
-                fontWeight: 700,
-                color: W.text,
-                whiteSpace: "nowrap",
-                flexShrink: 0,
-              }}
-            >
-              {(reviewStat?.avg || 0).toFixed(1)} ({reviewStat?.count || 0} รีวิว)
-            </span>
-
             {/* Divider — ซ่อนได้เมื่อ wrap */}
             <span
               style={{
-                color: "#D0D0D0",
+                color: "#aaa",
                 fontSize: "clamp(11px, 3vw, 13px)",
                 margin: "0 1px",
                 flexShrink: 0,
@@ -303,8 +289,8 @@ function StopRow({
             {/* ระยะทาง */}
             <span
               style={{
-                fontSize: "clamp(11px, 3vw, 13px)",
-                color: W.muted,
+                fontSize: "clamp(13px, 3vw, 13px)",
+                color: W.text,
                 whiteSpace: "nowrap",
                 flexShrink: 0,
               }}
