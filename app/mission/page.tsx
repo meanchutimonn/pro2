@@ -164,7 +164,7 @@ function StopRow({
           <span>⭐</span> <span style={{ fontSize: '13px', fontWeight: 'bold', marginLeft: '5px' }}>
             {(reviewStat?.avg || 0).toFixed(1)}
           </span>
-          <span style={{ fontSize: '13px', color: '#aaa', margin: '4px 0' }}>|</span>
+          <span style={{ fontSize: '13px', color: '#aaa', margin: '4px 0', gap: 8 }}>|</span>
           <span style={{ fontSize: 13, color: W.text }}>{displayDistance}</span>
         </div>
       </div>
