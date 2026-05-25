@@ -747,7 +747,7 @@ background-image: url('/photo/background.jpg');
   );
 }
 
-/* ===== STYLE (ของเดิมหนู 100%) ===== */
+/* ===== STYLE (ของเดิม 100%) ===== */
 
 const circleBtn = (side: "left" | "right") => ({
   position: "absolute" as const,
