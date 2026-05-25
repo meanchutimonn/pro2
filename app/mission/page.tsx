@@ -161,11 +161,12 @@ function StopRow({
         <div style={{ fontSize: 15, fontWeight: 800, color: W.text, marginBottom: 4 }}>{stop.name}</div>
         {/* แถวแสดงผล คะแนน รีวิว และระยะทางแบบเรียงหน้ากระดาน */}
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <span>⭐</span> <span style={{ fontSize: '13px', fontWeight: 'bold', marginLeft: '5px' }}>
+          <span>⭐</span> <span style={{ fontSize: '13px', fontWeight: '800' ,gap: 8,
+                  margin: "4px 0"}}>
             {(reviewStat?.avg || 0).toFixed(1)}
           </span>
-          <span style={{ fontSize: '13px', color: '#aaa', margin: '4px 0', gap: 8 }}>|</span>
-          <span style={{ fontSize: 13, color: W.text, gap: 8  }}>{displayDistance}</span>
+          <span style={{ fontSize: '13px', color: '#aaa'}}>|</span>
+          <span style={{ fontSize: 13, color: W.text }}>{displayDistance}</span>
         </div>
       </div>
 
