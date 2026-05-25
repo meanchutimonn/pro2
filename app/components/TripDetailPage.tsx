@@ -269,7 +269,6 @@ function StopRow({
                   margin: "4px 0"}}>
             {(reviewStat?.avg || 0).toFixed(1)}
           </span>  
-          <span style={{ fontSize: '13px', color: '#aaa', margin: '4px 0'}}>|</span>
             </div>
 
             {/* คะแนนและจำนวนรีวิว */}
@@ -278,7 +277,7 @@ function StopRow({
               style={{
                 color: "#aaa",
                 fontSize: "clamp(11px, 3vw, 13px)",
-                margin: "0 1px",
+                margin: '4px 0',
                 flexShrink: 0,
                 lineHeight: 1,
               }}
