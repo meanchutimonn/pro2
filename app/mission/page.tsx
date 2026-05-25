@@ -159,7 +159,9 @@ function StopRow({
       {/* ข้อมูลร้าน */}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", textAlign: "left" }}>
         <div style={{ fontSize: 15, fontWeight: 800, color: W.text, marginBottom: 4 }}>{stop.name}</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+        {/* แถวแสดงผล คะแนน รีวิว และระยะทางแบบเรียงหน้ากระดาน */}
+        <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap" // บังคับให้อยู่แถวเดียวกัน ไม่ให้ตกบรรทัด
+ }}>
            <span>⭐ {reviewStat?.avg.toFixed(1)}</span>
             <span style={{ color: "#D0D0D0", fontSize: 13, margin: "0 2px" }}>|</span>
           <span style={{ fontSize: 13, color: W.muted }}>{displayDistance}</span>
