@@ -29,8 +29,13 @@ export default function DashboardPage() {
     const user = auth.currentUser;
     if (!user) return;
 
-    const today = new Date().toISOString().split("T")[0];
-    const month = new Date().toISOString().slice(0, 7);
+    const now = new Date();
+
+    const today = now.toLocaleDateString("sv-SE", {
+      timeZone: "Asia/Bangkok",
+    });
+
+    const month = today.slice(0, 7);
 
     // ดึงข้อมูล Check-ins
     const checkinRef = collection(db, "checkins");
