@@ -322,7 +322,7 @@ function GraphItem({ label, value, onClick, active }: any) {
     <div style={{ ...barItem, opacity: active === false ? 0.4 : 1, width: "100%", flexShrink: 0 }} onClick={onClick}>
       <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
         {/* เพิ่ม padding หรือ margin ด้านล่างตัวเลข เพื่อไม่ให้ชิดกับขอบบน */}
-        <span style={{ fontSize: 13, fontWeight: "bold", marginBottom: 6, color: "#333" }}>{value}</span>
+        <span style={{ fontSize: 14, fontWeight: "bold", marginBottom: 6, color: "#333" }}>{value}</span>
         <div style={{ ...barFill, height }} />
       </div>
       <span style={barLabel}>{label}</span>
