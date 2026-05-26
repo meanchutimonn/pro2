@@ -760,15 +760,16 @@ justify-content:center;
 margin-top:-30px;
 }
 
-@media(max-width:600px){
+@media(max-width:760px){
 
 /* ===== HOT DEAL (แก้ใหม่ทั้งหมด) ===== */
-.hotDeals{
-display:flex;
-gap:12px;
-overflow-x:auto;
-padding-bottom:10px;
-}
+.hotDeals {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    overflow-x: hidden !important; /* ปิดการเลื่อนสไลด์ออกไปทางขวา */
+    gap: 15px !important;
+  }
 
 .hotDeals::-webkit-scrollbar{
 display:none;
@@ -779,6 +780,7 @@ min-width:220px;   /* ✅ สำคัญมาก */
 height:120px;
 flex-shrink:0;
 border-radius:10px;
+display: block !important;
 }
 
 .dealCard img{
