@@ -11,10 +11,12 @@ export default function ScanPage() {
   const scannedRef = useRef(false);
   const scannerRef = useRef<any>(null);
   const trackRef = useRef<any>(null);
+  
+  // 💡 เปลี่ยนมาใช้ Ref ควบคุมสถานะการสแกน เพื่อไม่ให้ useEffect ทำงานซ้ำซ้อนจนลูปพัง
+  const isScanningRef = useRef(false); 
 
   const [flash, setFlash] = useState(false);
   const [scanned, setScanned] = useState(false);
-  const [isScanning, setIsScanning] = useState(false);
 
   useEffect(() => {
     const startCamera = async () => {
@@ -25,6 +27,9 @@ export default function ScanPage() {
         router.push("/login");
         return;
       }
+
+      // ดักกรณีที่กล้องกำลังเปิดทำงานอยู่แล้ว ไม่ให้สร้างซ้ำ
+      if (isScanningRef.current) return;
 
       try {
         const scanner: any = new Html5Qrcode("reader");
@@ -41,15 +46,16 @@ export default function ScanPage() {
             scannedRef.current = true;
             setScanned(true);
 
-            if (scannerRef.current && isScanning) {
-              setIsScanning(false);
+            if (scannerRef.current && isScanningRef.current) {
+              isScanningRef.current = false;
               scannerRef.current.stop().catch(() => { });
             }
 
             router.push(decodedText);
           }
         );
-        setIsScanning(true);
+        
+        isScanningRef.current = true;
         
         const video = document.querySelector("#reader video") as HTMLVideoElement;
         if (video?.srcObject) {
@@ -65,7 +71,8 @@ export default function ScanPage() {
     setTimeout(startCamera, 300);
 
     return () => {
-      if (scannerRef.current && isScanning) {
+      if (scannerRef.current && isScanningRef.current) {
+        isScanningRef.current = false;
         scannerRef.current
           .stop()
           .then(() => {
@@ -74,7 +81,7 @@ export default function ScanPage() {
           .catch(() => { });
       }
     };
-  }, [isScanning, router]);
+  }, [router]); // 💡 เอา [isScanning] ออก เพื่อตัด Infinite Loop 
 
   const toggleFlash = async () => {
     if (!trackRef.current) return;
@@ -89,7 +96,6 @@ export default function ScanPage() {
   };
 
   return (
-    /* 💡 เปลี่ยนเรียก className="appContainer" เพื่อให้สัมพันธ์กับสไตล์ global */
     <div className="appContainer" style={page}>
       <button style={back} onClick={() => router.push("/")}>
         <Icon icon="lucide:chevron-left" width="30" />
@@ -122,24 +128,22 @@ export default function ScanPage() {
           background-repeat: no-repeat;
         }
 
-        /* 💡 ตั้งค่าคอนเทนเนอร์หลักให้แผ่เต็มหน้าจอตามหน้าอื่น */
         .appContainer {
           width: 100%;
           max-width: 1100px;
           min-height: 100vh;
-          background: #ffffff; /* เปลี่ยนเป็นพื้นหลังสีขาวล้วน */
+          background: #ffffff;
           border-radius: 24px;
           overflow: hidden;
           box-shadow: 0 20px 50px rgba(0,0,0,0.25);
           margin: 40px auto;
         }
 
-        /* 📱 บังคับยืดเต็มจอ ลบขอบมน และถมพื้นที่ด้านล่างสุดของมือถือ */
         @media (max-width: 760px) {
           .appContainer {
             border-radius: 0 !important;
             margin: 0 !important;
-            min-height: 100dvh !important; /* จัดการปัญหาแถบด้านล่างของ Safari ทะลุ */
+            min-height: 100dvh !important;
             height: 100% !important;
           }
         }
@@ -148,16 +152,14 @@ export default function ScanPage() {
   );
 }
 
-/* ---------- STYLE (แก้ไขจุดลอยและสีพื้นหลัง) ---------- */
+/* ---------- STYLE ---------- */
 const page: React.CSSProperties = {
-  /* ลบ height: "100vh" และความสูงเก่าออก เพื่อส่งต่อให้สไตล์ .appContainer คุมแทน */
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
   paddingTop: "80px",
-  paddingBottom: "40px", /* เพิ่ม padding ท้ายหน้ากันข้อมูลชิดขอบ */
+  paddingBottom: "40px",
   position: "relative"
-  /* ลบพารามิเตอร์ background และ top: "20px" ที่ดึงหน้าจอลอยออกเรียบร้อย */
 };
 
 const back: React.CSSProperties = {
@@ -190,7 +192,7 @@ const flashBtn: React.CSSProperties = {
 };
 
 const cameraBox: React.CSSProperties = {
-  width: "320px", /* ปรับกระชับให้สมส่วนกับจอมือถือมากขึ้น */
+  width: "320px",
   height: "420px",
   borderRadius: "20px",
   overflow: "hidden",
