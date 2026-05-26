@@ -103,9 +103,7 @@ export default function ScanPage() {
         <div id="reader" style={{ width: "100%", height: "100%" }}></div>
       </div>
 
-      <p style={text}>
-        เปิดใช้งานกล้องเพื่อสแกน QR Code
-      </p>
+      <p style={text}>สแกน QR Code เพื่อเช็กอินตามสถานที่</p>
 
       <div style={guideBox}>
         <h3 style={guideTitle}>คำแนะนำการสแกน</h3>
