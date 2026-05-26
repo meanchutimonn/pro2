@@ -475,6 +475,9 @@ export default function MissionPage() {
   @media (max-width: 760px) {
     .appContainer {
       border-radius: 0;
+      margin: 0;
+      min-height: 100dvh;   /* ใช้ dvh เพื่อคำนวณความสูงจอแบบหักลบแถบ URL บราวเซอร์มือถือออกให้พอดี */
+      height: 100%;        /* บังคับให้ยืดตามคอนเทนต์ลงไปด้านล่างสุด */
     }
   }
       `}</style>

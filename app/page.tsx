@@ -627,8 +627,15 @@ justify-content:space-between;
 .hotDeals{
 margin-top:10px;
 display:grid;
-grid-template-columns:1fr 1fr;
+grid-template-columns:1fr;
 gap:10px;
+}
+
+/* 💻 เพิ่มส่วนนี้ด้านล่างสุด: ถ้าจอใหญ่กว่า 768px (เช่น บนคอม) ให้กลับไปแบ่ง 2 คอลัมน์เหมือนเดิม */
+@media (min-width: 768px) {
+  .hotDeals {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 .dealCard{
