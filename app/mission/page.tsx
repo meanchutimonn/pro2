@@ -161,12 +161,14 @@ function StopRow({
         <div style={{ fontSize: 15, fontWeight: 800, color: W.text, marginBottom: 4 }}>{stop.name}</div>
         {/* แถวแสดงผล คะแนน รีวิว และระยะทางแบบเรียงหน้ากระดาน */}
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <span>⭐</span> <span style={{ fontSize: '13px', fontWeight: '800' ,gap: 8,
-                  margin: "4px 0"}}>
+          <span>⭐</span> <span style={{
+            fontSize: '13px', fontWeight: '800', gap: 8,
+            margin: "4px 0"
+          }}>
             {(reviewStat?.avg || 0).toFixed(1)}
           </span>
-          <span style={{ fontSize: '13px', color: '#aaa', margin: '4px 0'}}>|</span>
-          <span style={{ fontSize: 13, color: W.text, gap: 8 , margin: '5px 0' }}>{displayDistance}</span>
+          <span style={{ fontSize: '13px', color: '#aaa', margin: '4px 0' }}>|</span>
+          <span style={{ fontSize: 13, color: W.text, gap: 8, margin: '5px 0' }}>{displayDistance}</span>
         </div>
       </div>
 
@@ -457,15 +459,27 @@ export default function MissionPage() {
           background-position: center;
           background-repeat: no-repeat;
         }
+          .appContainer {
+    width: 100%;
+    max-width: 1100px;
+    min-height: 100vh;
+    background: #fff;
+    border-radius: 24px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+    margin: 0 auto;
+  }
+
+  @media (max-width: 760px) {
+    .appContainer {
+      border-radius: 0;
+    }
+  }
       `}</style>
 
-      <div style={{
-        width: "100%", maxWidth: "1100px", minHeight: "100vh",
-        background: "#fff", borderRadius: "24px", overflow: "hidden",
-        display: "flex", flexDirection: "column",
-        boxShadow: "0 20px 50px rgba(0,0,0,0.25)",
-        margin: "0 auto",
-      }}>
+      <div className="appContainer">
         <div style={{ flex: 1, display: "flex", flexDirection: "column", background: W.bg }}>
 
           {/* Header */}

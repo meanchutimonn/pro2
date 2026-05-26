@@ -243,31 +243,37 @@ export default function HomePage() {
     <div className="page">
       {/* HEADER - แก้ไข: เพิ่มแจ้งเตือนข้างโปรไฟล์ */}
       <div className="header">
-        <h1>{getGreeting()}, {userData?.name || "User"} !</h1>
+        <div className="headerTop">
+          <h1>{getGreeting()}, {userData?.name || "User"} !</h1>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
-          {/* ✅ Notification Icon with Red Dot */}
-          <div
-            style={{ position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
-            onClick={() => { setHasNewNotification(false); router.push("/notifications"); }}
-          >
-            <Icon icon="basil:notification-on-solid" width="28" style={{ color: "#6b4729" }} />
-            {hasNewNotification && (
-              <span style={{
-                position: 'absolute', top: '2px', right: '2px',
-                width: '10px', height: '10px', background: 'red',
-                borderRadius: '50%', border: '2px solid white'
-              }} />
+          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+            <div
+              style={{ position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+              onClick={() => { setHasNewNotification(false); router.push("/notifications"); }}
+            >
+              <Icon icon="basil:notification-on-solid" width="28" style={{ color: "#6b4729" }} />
+              {hasNewNotification && (
+                <span style={{
+                  position: 'absolute', top: '2px', right: '2px',
+                  width: '10px', height: '10px', background: 'red',
+                  borderRadius: '50%', border: '2px solid white'
+                }} />
+              )}
+            </div>
+
+            {userData?.photoURL ? (
+              <img className="avatar" src={userData.photoURL} onClick={handleProfileClick} style={{ cursor: "pointer" }} />
+            ) : (
+              <div className="avatar placeholder" onClick={handleProfileClick} style={{ cursor: "pointer" }}>
+                <Icon icon="mdi:account" width="28" />
+              </div>
             )}
           </div>
+        </div>
 
-          {userData?.photoURL ? (
-            <img className="avatar" src={userData.photoURL} onClick={handleProfileClick} style={{ cursor: "pointer" }} />
-          ) : (
-            <div className="avatar placeholder" onClick={handleProfileClick} style={{ cursor: "pointer" }}>
-              <Icon icon="mdi:account" width="28" />
-            </div>
-          )}
+        <div className="balanceContainer">
+          <span>คะแนนคงเหลือ :</span>
+          <span className="balanceValue">{userData?.balance || 0}</span>
         </div>
       </div>
 
@@ -532,19 +538,6 @@ background-image: url('/photo/background.jpg'); /* 🔥 ใส่รูป */
   border-radius:0;   /* ✅ mobile = ไม่มีขอบ */
   margin:0;          /* ✅ mobile = เต็มจอ */
 }
-
-/* HEADER */
-.header{
-display:flex;
-justify-content:space-between;
-align-items:center;
-}
-
-.header h1{
-font-size:28px;
-font-weight:700;
-}
-
 
 .avatar{
   width:55px;
@@ -831,16 +824,6 @@ font-size:12px;
     text-shadow: 0 2px 8px rgba(0,0,0,0.4);
 }
 
-/* ===== HEADER ===== */
-.header h1{
-font-size:26px;
-}
-
-.avatar{
-width:48px;
-height:48px;
-}
-
 }
 
 /* DESKTOP */
@@ -946,6 +929,36 @@ height:250px;
   object-fit: cover;
 }
 
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.headerTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.headerTop h1 {
+  font-size: 28px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.balanceContainer {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@media (max-width: 480px) {
+  .headerTop h1 {
+    font-size: 22px;
+  }
+}
+  
 /* 🔥 POPUP CSS */
 .popupOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000; backdrop-filter: blur(4px); }
 .popupCard { background: white; width: 90%; max-width: 350px; border-radius: 20px; padding: 24px; position: relative; animation: slideUp 0.3s ease-out; }
