@@ -469,7 +469,7 @@ export default function MissionPage() {
     display: flex;
     flex-direction: column;
     box-shadow: 0 20px 50px rgba(0,0,0,0.25);
-    margin: 0 auto;
+    margin: 40px auto;
   }
 
   @media (max-width: 760px) {
