@@ -32,7 +32,7 @@ function getWeeklyPoints(id: string, category?: string) {
   return Math.abs(hash) % 2 === 0 ? 5 : 10;
 }
 
-function getDistanceKm(lat1:number, lon1:number, lat2:number, lon2:number) {
+function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
   const R = 6371;
   const dLat = (lat2 - lat1) * (Math.PI / 180);
   const dLon = (lon2 - lon1) * (Math.PI / 180);
@@ -53,43 +53,43 @@ export default function CategoryPage() {
   const router = useRouter();
 
   const [showPopup, setShowPopup] = useState(false);
-const [selectedCafe, setSelectedCafe] = useState<any>(null);
-  
+  const [selectedCafe, setSelectedCafe] = useState<any>(null);
+
 
   const [cafes, setCafes] = useState<any[]>([]);
   const [showAll, setShowAll] = useState(false);
   const [userLocation, setUserLocation] = useState<{
-  lat: number;
-  lng: number;
-} | null>(null);
+    lat: number;
+    lng: number;
+  } | null>(null);
 
-const [reviews, setReviews] = useState<any[]>([]);
+  const [reviews, setReviews] = useState<any[]>([]);
 
-useEffect(() => {
-  const loadReviews = async () => {
-    const snap = await getDocs(collection(db, "reviews"));
-    const data = snap.docs.map(doc => doc.data());
-    setReviews(data);
-  };
+  useEffect(() => {
+    const loadReviews = async () => {
+      const snap = await getDocs(collection(db, "reviews"));
+      const data = snap.docs.map(doc => doc.data());
+      setReviews(data);
+    };
 
-  loadReviews();
-}, []);
+    loadReviews();
+  }, []);
 
-useEffect(() => {
-  if (!navigator.geolocation) return;
+  useEffect(() => {
+    if (!navigator.geolocation) return;
 
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      setUserLocation({
-        lat: position.coords.latitude,
-        lng: position.coords.longitude,
-      });
-    },
-    (err) => {
-      console.log("Location error:", err);
-    }
-  );
-}, []);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setUserLocation({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+        });
+      },
+      (err) => {
+        console.log("Location error:", err);
+      }
+    );
+  }, []);
 
   useEffect(() => {
     if (!params?.name) return;
@@ -110,20 +110,20 @@ useEffect(() => {
       const snap = await getDocs(q);
 
       const result = snap.docs.map(doc => {
-  const data = doc.data();
+        const data = doc.data();
 
 
-  return {
-    id: doc.id,
-    ...data,
-  };
-});
+        return {
+          id: doc.id,
+          ...data,
+        };
+      });
 
       setCafes(result);
     };
 
     fetchData();
- }, [params.name, userLocation]);
+  }, [params.name, userLocation]);
 
   const popular = cafes.slice(0, 3);
   const recommended = cafes.slice(3);
@@ -132,19 +132,19 @@ useEffect(() => {
     : recommended.slice(0, 5);
 
   return (
-  <div style={{
-    minHeight: "100vh",
-    backgroundImage: "url('/photo/background.jpg')",
-    backgroundSize: "cover",
-    backgroundPosition: "center",
-    backgroundRepeat: "no-repeat",   // ⭐ เต็มจอ
-  }}>
-    
-    <div className="pageWrap" style={{
+    <div style={{
+      minHeight: "100vh",
+      backgroundImage: "url('/photo/background.jpg')",
+      backgroundSize: "cover",
+      backgroundPosition: "center",
+      backgroundRepeat: "no-repeat",   // ⭐ เต็มจอ
+    }}>
+
+      <div className="pageWrap" style={{
         background: "#fff",
         minHeight: "100vh",
         overflow: "hidden",
-        }}>
+      }}>
 
         {/* HEADER */}
         <div style={{
@@ -172,7 +172,8 @@ useEffect(() => {
           </button>
 
           <span style={{ fontSize: 18, fontWeight: 800 }}>
-            {Array.isArray(params.name) ? params.name[0] : params.name}
+            {/* ถ้ารายการส่งมาเป็นคำว่า sight ให้แสดงคำว่า market แทน ถ้าไม่ใช่ให้แสดงชื่อปกติ */}
+            {(Array.isArray(params.name) ? params.name[0] : params.name) === "sight" ? "market" : (Array.isArray(params.name) ? params.name[0] : params.name)}
           </span>
 
           <div style={{ width: 42 }} />
@@ -194,10 +195,10 @@ useEffect(() => {
 
             justifyContent: "flex-start",
             flexWrap: "nowrap",
-            }}>
+          }}>
             {popular.map((cafe) => (
 
-                
+
               <div
                 key={cafe.id}
                 onClick={() => router.push(`/cafe/${cafe.id}`)} // ✅ กดแล้วไป detail
@@ -239,7 +240,7 @@ useEffect(() => {
                   flexDirection: "column",
                   justifyContent: "space-between"
                 }}>
-                  
+
                   {/* ชื่อ */}
                   <div style={{
                     fontWeight: 800,
@@ -273,97 +274,97 @@ useEffect(() => {
 
                 </div>
                 <div
-  onClick={(e) => {
-    e.stopPropagation(); // กันไม่ให้กดแล้วเด้งไปหน้า detail
-    setSelectedCafe(cafe);
-    setShowPopup(true);
-  }}
-  style={{
-    position: "absolute",
-    bottom: 120,       // ปรับระยะความสูงจากขอบล่าง
-    right: 20,        // ปรับระยะห่างจากขอบขวา
-    background: "#F3BC00",
-    padding: "6px 12px",
-    borderRadius: 12,
-    display: "flex",
-    alignItems: "center",
-    gap: 4,
-    cursor: "pointer",
+                  onClick={(e) => {
+                    e.stopPropagation(); // กันไม่ให้กดแล้วเด้งไปหน้า detail
+                    setSelectedCafe(cafe);
+                    setShowPopup(true);
+                  }}
+                  style={{
+                    position: "absolute",
+                    bottom: 120,       // ปรับระยะความสูงจากขอบล่าง
+                    right: 20,        // ปรับระยะห่างจากขอบขวา
+                    background: "#F3BC00",
+                    padding: "6px 12px",
+                    borderRadius: 12,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 4,
+                    cursor: "pointer",
 
-    zIndex: 20,
-boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
+                    zIndex: 20,
+                    boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
 
-  }}
->
-  <Icon icon="mdi:trophy" width="16" color="#fff" />
-  <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>
-    +{getWeeklyPoints(cafe.id, cafe.category)}
-  </span>
-</div>
+                  }}
+                >
+                  <Icon icon="mdi:trophy" width="16" color="#fff" />
+                  <span style={{ color: "#fff", fontWeight: 800, fontSize: 14 }}>
+                    +{getWeeklyPoints(cafe.id, cafe.category)}
+                  </span>
+                </div>
               </div>
             ))}
             {showPopup && selectedCafe && (
-  <div
-    style={{
-      position: "fixed",
-      inset: 0,
-      background: "rgba(0,0,0,0.5)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      zIndex: 9999
-    }}
-  >
-    <div
-      style={{
-        background: "#fff",
-        padding: 24,
-        borderRadius: 20,
-        width: 300,
-        textAlign: "center"
-      }}
-    >
-      <h3>📍 เช็คอินก่อน</h3>
+              <div
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  background: "rgba(0,0,0,0.5)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  zIndex: 9999
+                }}
+              >
+                <div
+                  style={{
+                    background: "#fff",
+                    padding: 24,
+                    borderRadius: 20,
+                    width: 300,
+                    textAlign: "center"
+                  }}
+                >
+                  <h3>📍 เช็คอินก่อน</h3>
 
-      <p style={{ fontSize: 14, color: "#555" }}>
-        สแกนเพื่อเช็คอิน และคุณจะได้รับ
-        <br />
-        {getWeeklyPoints(selectedCafe.id, selectedCafe.category)} คะแนน 🎉
-      </p>
+                  <p style={{ fontSize: 14, color: "#555" }}>
+                    สแกนเพื่อเช็คอิน และคุณจะได้รับ
+                    <br />
+                    {getWeeklyPoints(selectedCafe.id, selectedCafe.category)} คะแนน 🎉
+                  </p>
 
-      <div style={{ marginTop: 20, display: "flex", gap: 10 }}>
-        <button
-          onClick={() => setShowPopup(false)}
-          style={{
-            flex: 1,
-            padding: 10,
-            borderRadius: 10,
-            border: "none",
-            background: "#ddd"
-          }}
-        >
-          ยกเลิก
-        </button>
+                  <div style={{ marginTop: 20, display: "flex", gap: 10 }}>
+                    <button
+                      onClick={() => setShowPopup(false)}
+                      style={{
+                        flex: 1,
+                        padding: 10,
+                        borderRadius: 10,
+                        border: "none",
+                        background: "#ddd"
+                      }}
+                    >
+                      ยกเลิก
+                    </button>
 
-        <button
-          onClick={() => {
-            router.push(`/scan`);
-          }}
-          style={{
-            flex: 1,
-            padding: 10,
-            borderRadius: 10,
-            border: "none",
-            background: "#6B4226",
-            color: "#fff"
-          }}
-        >
-          ไปสแกน
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+                    <button
+                      onClick={() => {
+                        router.push(`/scan`);
+                      }}
+                      style={{
+                        flex: 1,
+                        padding: 10,
+                        borderRadius: 10,
+                        border: "none",
+                        background: "#6B4226",
+                        color: "#fff"
+                      }}
+                    >
+                      ไปสแกน
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* RECOMMENDED */}
@@ -373,102 +374,102 @@ boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
 
           {visibleRecommended.map((cafe) => {
 
-  const cafeReviews = reviews.filter(
-    (r) => r.location_id === cafe.id
-  );
-
-  const avg =
-    cafeReviews.length > 0
-      ? cafeReviews.reduce((sum, r) => sum + r.rating, 0) /
-        cafeReviews.length
-      : 0;
-
-  return (
-    <div
-      key={cafe.id}
-      onClick={() => router.push(`/cafe/${cafe.id}`)}
-      style={{
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        gap: 12,
-        padding: "14px 0",
-        borderBottom: "1px solid #eee",
-      }}
-    >
-
-              <img
-                src={cafe.mainImage}
-                style={{
-                  width: 70,
-                  height: 70,
-                  borderRadius: 8,
-                  objectFit: "cover"
-                }}
-              />
-
-              <div style={{ flex: 1 }}>
-
-                <div style={{ fontWeight: 800 }}>
-                  {cafe.locationName}
-                </div>
-
-                <div style={{
-                  display: "flex",
-                  gap: 8,
-                  margin: "4px 0"
-                }}>
-                  <span>⭐ {avg.toFixed(1)}</span>
-                  <span style={{ color: "#aaa" }}>|</span>
-                  <span>
-  {userLocation && cafe.latitude && cafe.longitude
-    ? getDistanceKm(
-        userLocation.lat,
-        userLocation.lng,
-        Number(cafe.latitude),
-        Number(cafe.longitude)
-      ).toFixed(1) + " กม."
-    : "กำลังโหลด..."}
-</span>
-                </div>
-
-                <div style={{
-                  fontSize: 13,
-                  color: "#777",
-                  display: "-webkit-box",
-                  WebkitLineClamp: 2,
-                  WebkitBoxOrient: "vertical",
-                  overflow: "hidden"
-                }}>
-                  {cafe.description}
-                </div>
-              </div>
-
-              <div
-  onClick={(e) => {
-    e.stopPropagation(); // 🔥 สำคัญมาก กันไม่ให้เด้งไปหน้า detail
-    setSelectedCafe(cafe);
-    setShowPopup(true);
-  }}
-  style={{
-    background: "#F3BC00",
-    borderRadius: 20,
-    padding: "8px 14px",
-    display: "flex",
-    alignItems: "center",
-    gap: 6,
-    minWidth: 80,
-    justifyContent: "center",
-    cursor: "pointer" // ✨ เพิ่มให้รู้ว่ากดได้
-  }}
->
-                <Icon icon="mdi:trophy" width="18" color="#fff" />
-                <span style={{ color:"#fff", fontWeight:800 }}>+{getWeeklyPoints(cafe.id, cafe.category)}</span>
-              </div>
-
-            </div>
+            const cafeReviews = reviews.filter(
+              (r) => r.location_id === cafe.id
             );
-            })}
+
+            const avg =
+              cafeReviews.length > 0
+                ? cafeReviews.reduce((sum, r) => sum + r.rating, 0) /
+                cafeReviews.length
+                : 0;
+
+            return (
+              <div
+                key={cafe.id}
+                onClick={() => router.push(`/cafe/${cafe.id}`)}
+                style={{
+                  cursor: "pointer",
+                  display: "flex",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "14px 0",
+                  borderBottom: "1px solid #eee",
+                }}
+              >
+
+                <img
+                  src={cafe.mainImage}
+                  style={{
+                    width: 70,
+                    height: 70,
+                    borderRadius: 8,
+                    objectFit: "cover"
+                  }}
+                />
+
+                <div style={{ flex: 1 }}>
+
+                  <div style={{ fontWeight: 800 }}>
+                    {cafe.locationName}
+                  </div>
+
+                  <div style={{
+                    display: "flex",
+                    gap: 8,
+                    margin: "4px 0"
+                  }}>
+                    <span>⭐ {avg.toFixed(1)}</span>
+                    <span style={{ color: "#aaa" }}>|</span>
+                    <span>
+                      {userLocation && cafe.latitude && cafe.longitude
+                        ? getDistanceKm(
+                          userLocation.lat,
+                          userLocation.lng,
+                          Number(cafe.latitude),
+                          Number(cafe.longitude)
+                        ).toFixed(1) + " กม."
+                        : "กำลังโหลด..."}
+                    </span>
+                  </div>
+
+                  <div style={{
+                    fontSize: 13,
+                    color: "#777",
+                    display: "-webkit-box",
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: "vertical",
+                    overflow: "hidden"
+                  }}>
+                    {cafe.description}
+                  </div>
+                </div>
+
+                <div
+                  onClick={(e) => {
+                    e.stopPropagation(); // 🔥 สำคัญมาก กันไม่ให้เด้งไปหน้า detail
+                    setSelectedCafe(cafe);
+                    setShowPopup(true);
+                  }}
+                  style={{
+                    background: "#F3BC00",
+                    borderRadius: 20,
+                    padding: "8px 14px",
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    minWidth: 80,
+                    justifyContent: "center",
+                    cursor: "pointer" // ✨ เพิ่มให้รู้ว่ากดได้
+                  }}
+                >
+                  <Icon icon="mdi:trophy" width="18" color="#fff" />
+                  <span style={{ color: "#fff", fontWeight: 800 }}>+{getWeeklyPoints(cafe.id, cafe.category)}</span>
+                </div>
+
+              </div>
+            );
+          })}
 
           {!showAll && recommended.length > 5 && (
             <div style={{ textAlign: "center", marginTop: 20 }}>
@@ -487,7 +488,7 @@ boxShadow: "0 4px 12px rgba(0,0,0,0.25)",
               </button>
             </div>
           )}
-            <style jsx global>{`
+          <style jsx global>{`
                    body{
 background-image: url('/photo/background.jpg'); /* 🔥 ใส่รูป */
   background-size: cover;       /* เต็มจอ */
