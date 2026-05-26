@@ -220,7 +220,8 @@ function StopRow({
       {/* 1. รูปภาพสถานที่ */}
       <div style={{
         width: 85, height: 85, borderRadius: 15,
-        background: `url('${stop.image}') center/cover #eee`,
+        // 💡 ดักดึงรูปจาก stop.image ถ้าไม่มีให้ดึงจากฟีลด์ใน cafeData (ทั้งตัวเล็กตัวใหญ่)
+        background: `url('${stop.image || cafeData?.mainImage || "/photo/placeholder.jpg"}') center/cover #eee`,
         flexShrink: 0, boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
       }} />
       {/* 2. รายละเอียดข้อความ (ลบส่วนซ้ำซ้อนออกแล้ว) */}
@@ -265,10 +266,12 @@ function StopRow({
           >
             {/* ดาว */}
             <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
-               <span>⭐</span> <span style={{ fontSize: '13px', fontWeight: '800' ,gap: 8,
-                  margin: "4px 0"}}>
-            {(reviewStat?.avg || 0).toFixed(1)}
-          </span>  
+              <span>⭐</span> <span style={{
+                fontSize: '13px', fontWeight: '800', gap: 8,
+                margin: "4px 0"
+              }}>
+                {(reviewStat?.avg || 0).toFixed(1)}
+              </span>
             </div>
 
             {/* คะแนนและจำนวนรีวิว */}
