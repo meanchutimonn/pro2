@@ -313,6 +313,7 @@ export default function MissionPage() {
   const isAllChecked = activeMission ? checkedCount === activeMission.stops.length && activeMission.stops.length > 0 : false;
 
   // 🛠️ ปรับฟังก์ชัน Claim แต้มและส่งแจ้งเตือนแบบสมบูรณ์แบบ
+  // 🛠️ เวอร์ชันซ่อมแซม: ดึงแต้มเก่ามาบวกแต้มใหม่ ป้องกันบั๊ก increment พัง
   const handleClaim = async () => {
     if (isClaiming) return;
     setIsClaiming(true);
@@ -339,18 +340,30 @@ export default function MissionPage() {
 
       const rewardPoints = activeMission?.points || 50;
 
-      // 1. อัปเดตสถานะภารกิจเป็น claimed เพื่อป้องกันการกดรับซ้ำ
+      // 1. ดึงแต้มปัจจุบันของผู้ใช้จากคอลเลกชัน users มาคำนวณก่อน
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
+      
+      let currentPoints = 0;
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        // ดักจับชื่อฟีลด์แต้ม (เผื่อในระบบของคุณใช้ตัวพิมพ์เล็ก/ใหญ่ เช่น point หรือ points)
+        currentPoints = Number(userData.points || userData.point || 0);
+      }
+
+      const newPoints = currentPoints + rewardPoints;
+
+      // 2. อัปเดตคะแนนใหม่เข้าไปในบัญชีผู้ใช้แทนที่ค่าเดิมตรงๆ
+      await setDoc(userRef, { points: newPoints }, { merge: true });
+
+      // 3. อัปเดตสถานะภารกิจเป็น claimed เพื่อบันทึกประวัติ
       await setDoc(
         missionRef,
         { status: "claimed", completedAt: serverTimestamp() },
         { merge: true }
       );
 
-      // 2. เพิ่มคะแนนลงในบัญชีผู้ใช้ (คอลเลกชัน users)
-      const userRef = doc(db, "users", user.uid);
-      await setDoc(userRef, { points: increment(rewardPoints) }, { merge: true });
-
-      // 3. สร้าง Notification เข้าคอลเลกชัน notifications
+      // 4. สร้าง Notification แจ้งเตือนเข้ากล่องข้อความ
       const notifRef = doc(collection(db, "notifications"));
       await setDoc(notifRef, {
         userId: user.uid,
@@ -361,12 +374,12 @@ export default function MissionPage() {
         isRead: false,
       });
 
-      // 4. เคลียร์ LocalStorage ระบบเก่าออกให้สะอาด
+      // 5. เคลียร์ LocalStorage ล้างสถานะเก่าบนเครื่อง
       localStorage.removeItem("activeMission");
       localStorage.removeItem("activeMissionId");
       localStorage.removeItem("activeMissionCompleted");
 
-      alert(`🎉 ยินดีด้วยค่ะ! คุณได้รับ ${rewardPoints} คะแนน และบันทึกประวัติความสำเร็จเรียบร้อยแล้ว!`);
+      alert(`🎉 ยินดีด้วยค่ะ! คุณได้รับคะแนนเพิ่มเป็น ${newPoints} คะแนนเรียบร้อยแล้ว!`);
       setActiveMission(null);
       setShowMap(false);
       setActiveTab("all");
