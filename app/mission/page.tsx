@@ -8,7 +8,7 @@ import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
 import {
   collection, getDocs, query, where,
-  doc, getDoc, setDoc, serverTimestamp
+  doc, getDoc, setDoc, serverTimestamp, increment
 } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { TripStop } from "../components/TripDetailPage";
@@ -27,7 +27,6 @@ const W = {
   pink: "#FF7A7A",
 };
 
-// ── ฟังก์ชันคำนวณระยะทาง (Haversine) ──────────────────────────────────────────
 function calculateDistance(
   lat1: number, lon1: number,
   lat2: number, lon2: number
@@ -43,8 +42,6 @@ function calculateDistance(
   return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
 }
 
-// ── Types ──────────────────────────────────────────────────────────────────────
-
 export interface TripDetail {
   id: number;
   title: string;
@@ -53,7 +50,6 @@ export interface TripDetail {
   stops: TripStop[];
 }
 
-// ── ภารกิจทั้งหมด (แสดงใน tab "ภารกิจทั้งหมด") ────────────────────────────────
 const allTrips = [
   {
     id: 1,
@@ -84,14 +80,12 @@ const allTrips = [
   },
 ];
 
-// ── helper: ดึง ID ของ stop ──────────────────────────────────────────────────
 function getStopId(stop: any): string {
   return String(
     stop.location_id || stop.locationId || stop.cafeId || stop.id || ""
   ).trim();
 }
 
-// ── StopRow ───────────────────────────────────────────────────────────────────
 function StopRow({
   stop,
   isChecked,
@@ -113,7 +107,6 @@ function StopRow({
   };
 }) {
   const router = useRouter();
-
   const cafeData = cafes.find((c) => c.locationName === stop.name);
   let displayDistance = stop.distance || "0.0 km";
   if (userLoc && cafeData?.latitude && cafeData?.longitude) {
@@ -136,7 +129,6 @@ function StopRow({
         cursor: "pointer",
       }}
     >
-      {/* ไอคอนสถานะ */}
       <div style={{ flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", width: 36, height: 36 }}>
         {isChecked ? (
           <div style={{ width: 36, height: 36, borderRadius: "50%", background: W.green, display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -149,30 +141,23 @@ function StopRow({
         )}
       </div>
 
-      {/* รูปร้าน */}
       <div style={{
         width: 85, height: 85, borderRadius: 15,
         background: `url('${stop.image}') center/cover #eee`,
         flexShrink: 0, boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
       }} />
 
-      {/* ข้อมูลร้าน */}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", textAlign: "left" }}>
         <div style={{ fontSize: 15, fontWeight: 800, color: W.text, marginBottom: 4 }}>{stop.name}</div>
-        {/* แถวแสดงผล คะแนน รีวิว และระยะทางแบบเรียงหน้ากระดาน */}
         <div style={{ display: 'flex', alignItems: 'center' }}>
-          <span>⭐</span> <span style={{
-            fontSize: '13px', fontWeight: '800', gap: 8,
-            margin: "4px 0"
-          }}>
+          <span>⭐</span> <span style={{ fontSize: '13px', fontWeight: '800', margin: "4px 5px" }}>
             {(reviewStat?.avg || 0).toFixed(1)}
           </span>
           <span style={{ fontSize: '13px', color: '#aaa', margin: '4px 0' }}>|</span>
-          <span style={{ fontSize: 13, color: W.text, gap: 8, margin: '5px 0' }}>{displayDistance}</span>
+          <span style={{ fontSize: 13, color: W.text, margin: '5px 5px' }}>{displayDistance}</span>
         </div>
       </div>
 
-      {/* ปุ่ม map */}
       <button
         onClick={(e) => {
           e.stopPropagation();
@@ -199,7 +184,6 @@ function StopRow({
   );
 }
 
-// ── Main Component ─────────────────────────────────────────────────────────────
 export default function MissionPage() {
   const router = useRouter();
   const [cafes, setCafes] = useState<any[]>([]);
@@ -208,26 +192,16 @@ export default function MissionPage() {
   const [activeTab, setActiveTab] = useState<"my" | "all">("my");
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
 
-  // ── Firestore mission state ────────────────────────────────────────────────
   const [activeMission, setActiveMission] = useState<TripDetail | null>(null);
   const [missionLoading, setMissionLoading] = useState(true);
+  const [isClaiming, setIsClaiming] = useState(false);
 
-  const [reviewStats, setReviewStats] = useState<Record<string, {
-    avg: number;
-    count: number;
-  }>>({});
-
-  const [randomImages, setRandomImages] = useState<{
-    temple: string | null;
-    cafe: string | null;
-    all: string | null;
-  }>({
-    temple: null,
-    cafe: null,
-    all: null,
+  const [reviewStats, setReviewStats] = useState<Record<string, { avg: number; count: number }>>({});
+  const [randomImages, setRandomImages] = useState<{ temple: string | null; cafe: string | null; all: string | null }>({
+    temple: null, cafe: null, all: null
   });
 
-  // ── โหลด active mission จาก Firestore ─────────────────────────────────────
+  // โหลด active mission
   useEffect(() => {
     const auth = getAuth();
     const unsub = onAuthStateChanged(auth, async (user) => {
@@ -239,7 +213,8 @@ export default function MissionPage() {
       const missionSnap = await getDoc(doc(db, "userMissions", user.uid));
       if (missionSnap.exists()) {
         const data = missionSnap.data();
-        if (data.status === "active" && data.tripData) {
+        // แก้ไข: ยอมรับสถานะ completed มาแสดงผลปุ่มกดรับแต้มให้เสร็จสรรพก่อนดีดหน้านี้หายไป
+        if ((data.status === "active" || data.status === "completed") && data.tripData) {
           setActiveMission(data.tripData as TripDetail);
           setActiveTab("my");
         } else {
@@ -255,7 +230,7 @@ export default function MissionPage() {
     return () => unsub();
   }, []);
 
-  // ── โหลด cafes + geolocation ──────────────────────────────────────────────
+  // โหลดพิกัดและข้อมูลสถานที่
   useEffect(() => {
     const fetchData = async () => {
       const snap = await getDocs(collection(db, "locations"));
@@ -271,99 +246,59 @@ export default function MissionPage() {
     }
   }, []);
 
-  // แก้โหลดภารกิจที่ผู้ใช้กำลังทำอยู่จาก Firestore
+  // โหลดจำนวนสถานที่เช็กอินที่ทำไปแล้ว
   useEffect(() => {
     if (!activeMission) return;
-
     const auth = getAuth();
-
     const unsub = onAuthStateChanged(auth, async (user) => {
       if (!user) return;
-
       const missionSnap = await getDoc(doc(db, "userMissions", user.uid));
-
       if (!missionSnap.exists()) {
         setHistoryIds(new Set());
         return;
       }
-
       const missionData = missionSnap.data();
-
-      if (
-        missionData.status !== "active" &&
-        missionData.status !== "completed"
-      ) {
+      if (missionData.status !== "active" && missionData.status !== "completed") {
         setHistoryIds(new Set());
         return;
       }
-
       if (String(missionData.tripId) !== String(activeMission.id)) {
         setHistoryIds(new Set());
         return;
       }
-
-      // ดึง progress ของ mission จาก checkedLocationIds
       const checkedIds = missionData.checkedLocationIds || [];
-
-      setHistoryIds(
-        new Set(checkedIds.map((id: any) => String(id).trim()))
-      );
+      setHistoryIds(new Set(checkedIds.map((id: any) => String(id).trim())));
     });
-
     return () => unsub();
   }, [activeMission]);
 
+  // โหลดรูปสุ่มทำพื้นหลังการ์ดภารกิจ
   useEffect(() => {
     const loadImages = async () => {
       try {
         const snap = await getDocs(collection(db, "locations"));
-
         const templeImages: string[] = [];
         const cafeImages: string[] = [];
         const allImages: string[] = [];
 
         snap.forEach((doc) => {
           const data = doc.data();
-
-          if (
-            data.extraImages &&
-            Array.isArray(data.extraImages) &&
-            data.extraImages.length > 0
-          ) {
-            if (data.category === "Temple") {
-              templeImages.push(...data.extraImages);
-            }
-
-            if (data.category === "Cafe") {
-              cafeImages.push(...data.extraImages);
-            }
-
+          if (data.extraImages && Array.isArray(data.extraImages) && data.extraImages.length > 0) {
+            if (data.category === "Temple") templeImages.push(...data.extraImages);
+            if (data.category === "Cafe") cafeImages.push(...data.extraImages);
             allImages.push(...data.extraImages);
           }
         });
 
         setRandomImages({
-          temple:
-            templeImages.length > 0
-              ? templeImages[Math.floor(Math.random() * templeImages.length)]
-              : null,
-
-          cafe:
-            cafeImages.length > 0
-              ? cafeImages[Math.floor(Math.random() * cafeImages.length)]
-              : null,
-
-          all:
-            allImages.length > 0
-              ? allImages[Math.floor(Math.random() * allImages.length)]
-              : null,
+          temple: templeImages.length > 0 ? templeImages[Math.floor(Math.random() * templeImages.length)] : null,
+          cafe: cafeImages.length > 0 ? cafeImages[Math.floor(Math.random() * cafeImages.length)] : null,
+          all: allImages.length > 0 ? allImages[Math.floor(Math.random() * allImages.length)] : null,
         });
-
       } catch (error) {
         console.error("Error loading images:", error);
       }
     };
-
     loadImages();
   }, []);
 
@@ -375,70 +310,92 @@ export default function MissionPage() {
     ? activeMission.stops.filter((s) => historyIds.has(getStopId(s))).length
     : 0;
 
-  // แก้ อัปเดต mission เป็น completed และสร้าง notification แจ้งผู้ใช้ว่าได้รับคะแนน
+  const isAllChecked = activeMission ? checkedCount === activeMission.stops.length && activeMission.stops.length > 0 : false;
+
+  // 🛠️ ปรับฟังก์ชัน Claim แต้มและส่งแจ้งเตือนแบบสมบูรณ์แบบ
   const handleClaim = async () => {
+    if (isClaiming) return;
+    setIsClaiming(true);
+
     const auth = getAuth();
     const user = auth.currentUser;
-    if (user) {
+    if (!user) {
+      alert("กรุณาเข้าสู่ระบบก่อนทำรายการค่ะ");
+      setIsClaiming(false);
+      return;
+    }
+
+    try {
+      const missionRef = doc(db, "userMissions", user.uid);
+      const missionSnap = await getDoc(missionRef);
+      
+      if (missionSnap.exists() && missionSnap.data().status === "claimed") {
+        alert("คุณเคยรับคะแนนสำหรับภารกิจนี้ไปเรียบร้อยแล้วค่ะ! 🎉");
+        setActiveMission(null);
+        setActiveTab("all");
+        setIsClaiming(false);
+        return;
+      }
+
+      const rewardPoints = activeMission?.points || 50;
+
+      // 1. อัปเดตสถานะภารกิจเป็น claimed เพื่อป้องกันการกดรับซ้ำ
       await setDoc(
-        doc(db, "userMissions", user.uid),
-        { status: "completed", completedAt: serverTimestamp() },
+        missionRef,
+        { status: "claimed", completedAt: serverTimestamp() },
         { merge: true }
       );
 
-      await setDoc(
-        doc(collection(db, "notifications")),
-        {
-          userId: user.uid,
-          title: "🎉 ภารกิจสำเร็จ",
-          message: `คุณทำภารกิจสำเร็จแล้ว ได้รับ ${activeMission?.points} คะแนน`,
-          type: "mission_complete",
-          createdAt: serverTimestamp(),
-          isRead: false,
-        }
-      );
+      // 2. เพิ่มคะแนนลงในบัญชีผู้ใช้ (คอลเลกชัน users)
+      const userRef = doc(db, "users", user.uid);
+      await setDoc(userRef, { points: increment(rewardPoints) }, { merge: true });
+
+      // 3. สร้าง Notification เข้าคอลเลกชัน notifications
+      const notifRef = doc(collection(db, "notifications"));
+      await setDoc(notifRef, {
+        userId: user.uid,
+        title: "🎉 ภารกิจสำเร็จแล้ว!",
+        message: `คุณทำภารกิจ "${activeMission?.title}" สำเร็จครบถ้วน ได้รับคะแนนสะสมเพิ่ม +${rewardPoints} แต้มเรียบร้อยแล้วค่ะ`,
+        type: "mission_complete",
+        createdAt: serverTimestamp(),
+        isRead: false,
+      });
+
+      // 4. เคลียร์ LocalStorage ระบบเก่าออกให้สะอาด
+      localStorage.removeItem("activeMission");
+      localStorage.removeItem("activeMissionId");
+      localStorage.removeItem("activeMissionCompleted");
+
+      alert(`🎉 ยินดีด้วยค่ะ! คุณได้รับ ${rewardPoints} คะแนน และบันทึกประวัติความสำเร็จเรียบร้อยแล้ว!`);
+      setActiveMission(null);
+      setShowMap(false);
+      setActiveTab("all");
+    } catch (err) {
+      console.error("Error claiming reward:", err);
+      alert("เกิดข้อผิดพลาดในการรับคะแนน กรุณาลองใหม่อีกครั้งค่ะ");
+    } finally {
+      setIsClaiming(false);
     }
-    localStorage.removeItem("activeMission");
-    localStorage.removeItem("activeMissionId");
-    localStorage.removeItem("activeMissionCompleted");
-    setActiveMission(null);
-    alert("🎉 Congratulations! You've claimed your points!");
-    setShowMap(false);
-    setActiveTab("all");
   };
 
   useEffect(() => {
     const loadReviewStats = async () => {
       if (!activeMission || cafes.length === 0) return;
-
       const stats: Record<string, { avg: number; count: number }> = {};
-
       await Promise.all(
         activeMission.stops.map(async (stop) => {
           const cafeData = cafes.find((c) => c.locationName === stop.name);
           if (!cafeData?.id) return;
-
           const reviews = await getReviews(cafeData.id);
-
-          const avg =
-            reviews.length > 0
-              ? reviews.reduce((sum: number, r: any) => sum + Number(r.rating || 0), 0) / reviews.length
-              : 0;
-
-          stats[stop.name] = {
-            avg,
-            count: reviews.length,
-          };
+          const avg = reviews.length > 0 ? reviews.reduce((sum: number, r: any) => sum + Number(r.rating || 0), 0) / reviews.length : 0;
+          stats[stop.name] = { avg, count: reviews.length };
         })
       );
-
       setReviewStats(stats);
     };
-
     loadReviewStats();
   }, [activeMission, cafes]);
 
-  // ── Map view ──────────────────────────────────────────────────────────────
   if (showMap && activeMission) {
     return (
       <TripMapPage
@@ -459,27 +416,26 @@ export default function MissionPage() {
           background-position: center;
           background-repeat: no-repeat;
         }
+        .appContainer {
+          width: 100%;
+          max-width: 1100px;
+          min-height: 100vh;
+          background: #fff;
+          border-radius: 24px;
+          overflow: hidden;
+          display: flex;
+          flex-direction: column;
+          box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+          margin: 40px auto;
+        }
+        @media (max-width: 760px) {
           .appContainer {
-    width: 100%;
-    max-width: 1100px;
-    min-height: 100vh;
-    background: #fff;
-    border-radius: 24px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.25);
-    margin: 40px auto;
-  }
-
-  @media (max-width: 760px) {
-    .appContainer {
-      border-radius: 0;
-      margin: 0;
-      min-height: 100dvh;   /* ใช้ dvh เพื่อคำนวณความสูงจอแบบหักลบแถบ URL บราวเซอร์มือถือออกให้พอดี */
-      height: 100%;        /* บังคับให้ยืดตามคอนเทนต์ลงไปด้านล่างสุด */
-    }
-  }
+            border-radius: 0;
+            margin: 0;
+            min-height: 100dvh;
+            height: 100%;
+          }
+        }
       `}</style>
 
       <div className="appContainer">
@@ -531,7 +487,6 @@ export default function MissionPage() {
           {/* Content */}
           <div style={{ flex: 1, overflowY: "auto", padding: "20px" }}>
 
-            {/* แก้แสดงเฉพาะ activeMission และสถานที่ทั้งหมดในภารกิจนั้น  */}
             {activeTab === "my" && (
               <>
                 {missionLoading && (
@@ -566,15 +521,20 @@ export default function MissionPage() {
                   <>
                     {/* Mission progress card */}
                     <div style={{
-                      background: "#fffbeb", border: "1px solid #fef3c7",
+                      background: isAllChecked ? "#f0fdf4" : "#fffbeb", 
+                      border: isAllChecked ? "1px solid #bbf7d0" : "1px solid #fef3c7",
                       borderRadius: 24, padding: 20,
                       display: "flex", alignItems: "center", gap: 16, marginBottom: 24,
                     }}>
                       <div style={{
-                        width: 48, height: 48, background: "#fef3c7", borderRadius: 12,
+                        width: 48, height: 48, background: isAllChecked ? "#dcfce7" : "#fef3c7", borderRadius: 12,
                         display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
                       }}>
-                        <Icon icon="lucide:clipboard-list" width="28" height="28" color="#92400e" />
+                        <Icon 
+                          icon={isAllChecked ? "lucide:trophy" : "lucide:clipboard-list"} 
+                          width="28" height="28" 
+                          color={isAllChecked ? "#166534" : "#92400e"} 
+                        />
                       </div>
                       <div style={{ flex: 1 }}>
                         <div style={{ fontSize: 16, fontWeight: 800, color: W.text }}>
@@ -584,37 +544,55 @@ export default function MissionPage() {
                           เสร็จสิ้น {checkedCount} / {activeMission.stops.length} สถานที่
                         </div>
                         <div style={{
-                          height: 8, background: "#fef3c7", borderRadius: 4,
+                          height: 8, background: isAllChecked ? "#dcfce7" : "#fef3c7", borderRadius: 4,
                           marginTop: 10, overflow: "hidden",
                         }}>
                           <div style={{
-                            height: "100%", background: W.dark, borderRadius: 4,
+                            height: "100%", background: isAllChecked ? W.green : W.dark, borderRadius: 4,
                             width: `${(checkedCount / (activeMission.stops.length || 1)) * 100}%`,
                             transition: "width 0.4s ease",
                           }} />
                         </div>
                       </div>
-                      <button
-                        onClick={() => {
-                          if (checkedCount > 0) {
-                            setShowMap(true);
-                          } else {
-                            alert("📍 คุณต้องเริ่มทำภารกิจ (เช็คอินอย่างน้อย 1 ที่) ก่อนจึงจะดูแผนที่ได้ค่ะ");
-                          }
-                        }}
-                        style={{
-                          background: "white", border: "1px solid #fde68a",
-                          borderRadius: 12, padding: "8px 12px",
-                          display: "flex", alignItems: "center", gap: 4,
-                          cursor: checkedCount > 0 ? "pointer" : "not-allowed",
-                          fontSize: 13, fontWeight: 700,
-                          color: checkedCount > 0 ? "#92400e" : "#ccc",
-                          opacity: checkedCount > 0 ? 1 : 0.6,
-                        }}
-                      >
-                        ดูแผนที่
-                        <Icon icon="material-symbols:map" width="18" height="18" />
-                      </button>
+
+                      {/* ปุ่มสั่งงานปรับตาม Progress ของภารกิจ */}
+                      {isAllChecked ? (
+                        <button
+                          onClick={handleClaim}
+                          disabled={isClaiming}
+                          style={{
+                            background: W.green, border: "none",
+                            borderRadius: 12, padding: "10px 14px",
+                            display: "flex", alignItems: "center", gap: 4,
+                            cursor: "pointer", fontSize: 13, fontWeight: 700,
+                            color: "white", boxShadow: "0 4px 12px rgba(79,119,45,0.3)"
+                          }}
+                        >
+                          {isClaiming ? "กำลังบันทึก..." : "รับแต้ม 🎉"}
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => {
+                            if (checkedCount > 0) {
+                              setShowMap(true);
+                            } else {
+                              alert("📍 คุณต้องเริ่มทำภารกิจ (เช็คอินอย่างน้อย 1 ที่) ก่อนจึงจะดูแผนที่ได้ค่ะ");
+                            }
+                          }}
+                          style={{
+                            background: "white", border: "1px solid #fde68a",
+                            borderRadius: 12, padding: "8px 12px",
+                            display: "flex", alignItems: "center", gap: 4,
+                            cursor: checkedCount > 0 ? "pointer" : "not-allowed",
+                            fontSize: 13, fontWeight: 700,
+                            color: checkedCount > 0 ? "#92400e" : "#ccc",
+                            opacity: checkedCount > 0 ? 1 : 0.6,
+                          }}
+                        >
+                          ดูแผนที่
+                          <Icon icon="material-symbols:map" width="18" height="18" />
+                        </button>
+                      )}
                     </div>
 
                     {/* Stop list */}
@@ -644,20 +622,15 @@ export default function MissionPage() {
               </>
             )}
 
-            {/* แก้ แสดงรายการ Trip x2 ทั้งหมด ไม่เกี่ยวกับ mission ที่ active อยู่ */}
             {activeTab === "all" && (
               <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 {allTrips.map((item) => {
-
                   let bgImage = item.image;
-
                   if (item.title.includes("อาราม") && randomImages.temple) {
                     bgImage = randomImages.temple;
-                  }
-                  else if (item.title.includes("Caffeine") && randomImages.cafe) {
+                  } else if (item.title.includes("Caffeine") && randomImages.cafe) {
                     bgImage = randomImages.cafe;
-                  }
-                  else if (item.title.includes("Magic") && randomImages.all) {
+                  } else if (item.title.includes("Magic") && randomImages.all) {
                     bgImage = randomImages.all;
                   }
 
@@ -691,7 +664,6 @@ export default function MissionPage() {
                         <Icon icon="lucide:chevron-right" width="20" color={W.muted} />
                       </div>
                     </div>
-
                   )
                 })}
               </div>
