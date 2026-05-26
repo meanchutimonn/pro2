@@ -7,7 +7,6 @@ import { Icon } from "@iconify/react";
 import { getAuth } from "firebase/auth";
 
 export default function ScanPage() {
-
   const router = useRouter();
   const scannedRef = useRef(false);
   const scannerRef = useRef<any>(null);
@@ -18,24 +17,20 @@ export default function ScanPage() {
   const [isScanning, setIsScanning] = useState(false);
 
   useEffect(() => {
-
     const startCamera = async () => {
       const user = getAuth().currentUser;
 
       if (!user) {
         alert("กรุณาเข้าสู่ระบบก่อนใช้งาน");
-
-        router.push("/login"); // 🔥 เด้งไปหน้า login
+        router.push("/login");
         return;
       }
 
       try {
-
         const scanner: any = new Html5Qrcode("reader");
         scannerRef.current = scanner;
 
         await scanner.start(
-
           { facingMode: "environment" },
           {
             fps: 10,
@@ -55,9 +50,8 @@ export default function ScanPage() {
           }
         );
         setIsScanning(true);
-        // ดึง track มาใช้ flash
+        
         const video = document.querySelector("#reader video") as HTMLVideoElement;
-
         if (video?.srcObject) {
           const stream = video.srcObject as MediaStream;
           trackRef.current = stream.getVideoTracks()[0];
@@ -66,7 +60,6 @@ export default function ScanPage() {
       } catch (err) {
         console.log("กล้องไม่สามารถทำงานได้:", err);
       }
-
     };
 
     setTimeout(startCamera, 300);
@@ -81,43 +74,28 @@ export default function ScanPage() {
           .catch(() => { });
       }
     };
-
-  }, []);
+  }, [isScanning, router]);
 
   const toggleFlash = async () => {
-
     if (!trackRef.current) return;
-
     try {
-
       await trackRef.current.applyConstraints({
         advanced: [{ torch: !flash }]
       });
-
       setFlash(!flash);
-
     } catch (err) {
       console.log("แฟลชไม่สามารถทำงานได้:", err);
     }
-
   };
 
   return (
-
-    <div className="page" style={page}>
-
-      <button
-        style={back}
-        onClick={() => router.push("/")}
-      >
-
+    /* 💡 เปลี่ยนเรียก className="appContainer" เพื่อให้สัมพันธ์กับสไตล์ global */
+    <div className="appContainer" style={page}>
+      <button style={back} onClick={() => router.push("/")}>
         <Icon icon="lucide:chevron-left" width="30" />
       </button>
 
-      <button
-        style={flashBtn}
-        onClick={toggleFlash}
-      >
+      <button style={flashBtn} onClick={toggleFlash}>
         {flash ? "ปิดแฟลช" : "เปิดแฟลช"}
       </button>
 
@@ -131,67 +109,57 @@ export default function ScanPage() {
 
       <div style={guideBox}>
         <h3 style={guideTitle}>คำแนะนำการสแกน</h3>
-
-        <p style={guideText}>
-          • สำหรับร้านค้า กรุณาขอ QR Code ได้ที่เคาน์เตอร์
-        </p>
-
-        <p style={guideText}>
-          • สำหรับวัด จุดสแกนจะอยู่บริเวณทางเข้าโบสถ์
-        </p>
-
-        <p style={guideText}>
-          • สำหรับตลาด จุดสแกนจะอยู่ที่เสาแรกของทางเข้าตลาด
-        </p>
+        <p style={guideText}>• สำหรับร้านค้า กรุณาขอ QR Code ได้ที่เคาน์เตอร์</p>
+        <p style={guideText}>• สำหรับวัด จุดสแกนจะอยู่บริเวณทางเข้าโบสถ์</p>
+        <p style={guideText}>• สำหรับตลาด จุดสแกนจะอยู่ที่เสาแรกของทางเข้าตลาด</p>
       </div>
-      <div style={{ marginTop: "20px", display: "flex", gap: "10px" }}>
 
-
-      </div>
+      <div style={{ marginTop: "20px", display: "flex", gap: "10px" }}></div>
 
       <style jsx global>{`
-          body{
-background-image: url('/photo/background.jpg'); /* 🔥 ใส่รูป */
-  background-size: cover;       /* เต็มจอ */
-  background-position: center;  /* กลาง */
-  background-repeat: no-repeat; /* ไม่ซ้ำ */
-}
+        body {
+          background-image: url('/photo/background.jpg');
+          background-size: cover;
+          background-position: center;
+          background-repeat: no-repeat;
+        }
 
-  .page{
-    border-radius: 0;
-    margin: 0;
-  }
+        /* 💡 ตั้งค่าคอนเทนเนอร์หลักให้แผ่เต็มหน้าจอตามหน้าอื่น */
+        .appContainer {
+          width: 100%;
+          max-width: 1100px;
+          min-height: 100vh;
+          background: #ffffff; /* เปลี่ยนเป็นพื้นหลังสีขาวล้วน */
+          border-radius: 24px;
+          overflow: hidden;
+          box-shadow: 0 20px 50px rgba(0,0,0,0.25);
+          margin: 40px auto;
+        }
 
-  /* 💻 DESKTOP */
-  @media(min-width:1024px){
-    .page{
-      max-width: 1100px;
-      margin: 40px auto;
-      border-radius: 20px;
-      box-shadow: 0 0 20px rgba(0,0,0,0.25);
-      overflow: hidden;
-    }
-  }
-`}</style>
+        /* 📱 บังคับยืดเต็มจอ ลบขอบมน และถมพื้นที่ด้านล่างสุดของมือถือ */
+        @media (max-width: 760px) {
+          .appContainer {
+            border-radius: 0 !important;
+            margin: 0 !important;
+            min-height: 100dvh !important; /* จัดการปัญหาแถบด้านล่างของ Safari ทะลุ */
+            height: 100% !important;
+          }
+        }
+      `}</style>
     </div>
-
-
   );
-
 }
 
-
-/* ---------- STYLE (แก้ TypeScript แล้ว) ---------- */
-
+/* ---------- STYLE (แก้ไขจุดลอยและสีพื้นหลัง) ---------- */
 const page: React.CSSProperties = {
-  height: "100vh",
-  background: "#f4f4f4",
+  /* ลบ height: "100vh" และความสูงเก่าออก เพื่อส่งต่อให้สไตล์ .appContainer คุมแทน */
   display: "flex",
   flexDirection: "column",
   alignItems: "center",
   paddingTop: "80px",
-  position: "relative",
-  top: "20px"
+  paddingBottom: "40px", /* เพิ่ม padding ท้ายหน้ากันข้อมูลชิดขอบ */
+  position: "relative"
+  /* ลบพารามิเตอร์ background และ top: "20px" ที่ดึงหน้าจอลอยออกเรียบร้อย */
 };
 
 const back: React.CSSProperties = {
@@ -206,9 +174,8 @@ const back: React.CSSProperties = {
   color: "white",
   fontSize: "20px",
   cursor: "pointer",
-
-  display: "flex",              // ✅ เพิ่ม
-  alignItems: "center",         // ✅ เพิ่ม
+  display: "flex",
+  alignItems: "center",
   justifyContent: "center"
 };
 
@@ -225,8 +192,8 @@ const flashBtn: React.CSSProperties = {
 };
 
 const cameraBox: React.CSSProperties = {
-  width: "360px",
-  height: "480px",
+  width: "320px", /* ปรับกระชับให้สมส่วนกับจอมือถือมากขึ้น */
+  height: "420px",
   borderRadius: "20px",
   overflow: "hidden",
   background: "black"
@@ -235,12 +202,13 @@ const cameraBox: React.CSSProperties = {
 const text: React.CSSProperties = {
   marginTop: "20px",
   fontSize: "18px",
-  fontWeight: "600"
+  fontWeight: "600",
+  color: "#000"
 };
 
 const guideBox: React.CSSProperties = {
   marginTop: "18px",
-  width: "360px",
+  width: "320px",
   background: "rgba(255,255,255,0.95)",
   borderRadius: "16px",
   padding: "16px",
