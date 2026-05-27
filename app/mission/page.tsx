@@ -8,7 +8,10 @@ import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
 import {
   collection, getDocs, query, where,
-  doc, getDoc, setDoc, serverTimestamp
+  doc, getDoc, setDoc, serverTimestamp,
+  addDoc,
+  increment,
+  updateDoc
 } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { TripStop } from "../components/TripDetailPage";
@@ -239,7 +242,11 @@ export default function MissionPage() {
       const missionSnap = await getDoc(doc(db, "userMissions", user.uid));
       if (missionSnap.exists()) {
         const data = missionSnap.data();
-        if (data.status === "active" && data.tripData) {
+        if (
+          (data.status === "active" || data.status === "completed") &&
+          !data.rewardClaimed &&
+          data.tripData
+        ) {
           setActiveMission(data.tripData as TripDetail);
           setActiveTab("my");
         } else {
@@ -375,36 +382,65 @@ export default function MissionPage() {
     ? activeMission.stops.filter((s) => historyIds.has(getStopId(s))).length
     : 0;
 
+  const isReadyToClaim =
+    !!activeMission &&
+    activeMission.stops.length > 0 &&
+    checkedCount === activeMission.stops.length;
+
   // แก้ อัปเดต mission เป็น completed และสร้าง notification แจ้งผู้ใช้ว่าได้รับคะแนน
   const handleClaim = async () => {
     const auth = getAuth();
     const user = auth.currentUser;
-    if (user) {
-      await setDoc(
-        doc(db, "userMissions", user.uid),
-        { status: "completed", completedAt: serverTimestamp() },
-        { merge: true }
-      );
+    if (!user || !activeMission) return;
 
-      await setDoc(
-        doc(collection(db, "notifications")),
-        {
-          userId: user.uid,
-          title: "🎉 ภารกิจสำเร็จ",
-          message: `คุณทำภารกิจสำเร็จแล้ว ได้รับ ${activeMission?.points} คะแนน`,
-          type: "mission_complete",
-          createdAt: serverTimestamp(),
-          isRead: false,
-        }
-      );
+    const userRef = doc(db, "users", user.uid);
+    const missionRef = doc(db, "userMissions", user.uid);
+    const rewardPoints = activeMission.points ?? 50;
+
+    const missionSnap = await getDoc(missionRef);
+    const missionData = missionSnap.data();
+
+    if (missionData?.rewardClaimed) {
+      alert("คุณรับรางวัลภารกิจนี้ไปแล้ว");
+      return;
     }
+
+    await updateDoc(userRef, {
+      balance: increment(rewardPoints),
+    });
+
+    await setDoc(
+      missionRef,
+      {
+        status: "completed",
+        rewardClaimed: true,
+        completedAt: serverTimestamp(),
+        claimedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
+
+    await addDoc(collection(db, "notifications"), {
+      userId: user.uid,
+      title: "ภารกิจสำเร็จ 🎉",
+      body: `คุณทำภารกิจสำเร็จแล้ว ได้รับ ${rewardPoints} คะแนน`,
+      type: "mission_complete",
+      missionId: activeMission.id,
+      missionName: activeMission.title,
+      points: rewardPoints,
+      read: false,
+      createdAt: serverTimestamp(),
+    });
+
     localStorage.removeItem("activeMission");
     localStorage.removeItem("activeMissionId");
     localStorage.removeItem("activeMissionCompleted");
+
     setActiveMission(null);
-    alert("🎉 Congratulations! You've claimed your points!");
     setShowMap(false);
     setActiveTab("all");
+
+    alert(`🎉 ทำภารกิจเสร็จแล้ว! คุณได้รับ ${rewardPoints} คะแนน`);
   };
 
   useEffect(() => {
@@ -445,7 +481,7 @@ export default function MissionPage() {
         trip={activeMission}
         onHome={() => setShowMap(false)}
         onMapClose={() => setShowMap(false)}
-        onClaim={handleClaim}
+        onClaim={() => handleClaim(activeMission)}
       />
     );
   }
@@ -593,6 +629,11 @@ export default function MissionPage() {
                       </div>
                       <button
                         onClick={() => {
+                          if (isReadyToClaim) {
+                            handleClaim(activeMission);
+                            return;
+                          }
+
                           if (checkedCount > 0) {
                             setShowMap(true);
                           } else {
@@ -600,17 +641,26 @@ export default function MissionPage() {
                           }
                         }}
                         style={{
-                          background: "white", border: "1px solid #fde68a",
-                          borderRadius: 12, padding: "8px 12px",
-                          display: "flex", alignItems: "center", gap: 4,
-                          cursor: checkedCount > 0 ? "pointer" : "not-allowed",
-                          fontSize: 13, fontWeight: 700,
-                          color: checkedCount > 0 ? "#92400e" : "#ccc",
-                          opacity: checkedCount > 0 ? 1 : 0.6,
+                          background: isReadyToClaim ? W.green : "white",
+                          border: isReadyToClaim ? "none" : "1px solid #fde68a",
+                          borderRadius: 12,
+                          padding: "8px 12px",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: 4,
+                          cursor: checkedCount > 0 || isReadyToClaim ? "pointer" : "not-allowed",
+                          fontSize: 13,
+                          fontWeight: 700,
+                          color: isReadyToClaim ? "white" : checkedCount > 0 ? "#92400e" : "#ccc",
+                          opacity: checkedCount > 0 || isReadyToClaim ? 1 : 0.6,
                         }}
                       >
-                        ดูแผนที่
-                        <Icon icon="material-symbols:map" width="18" height="18" />
+                        {isReadyToClaim ? "กดเพื่อรับรางวัล" : "ดูแผนที่"}
+                        <Icon
+                          icon={isReadyToClaim ? "mdi:gift" : "material-symbols:map"}
+                          width="18"
+                          height="18"
+                        />
                       </button>
                     </div>
 
