@@ -532,7 +532,7 @@ export default function MissionPage() {
 
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ display: "flex", justifyContent: "between", alignItems: "center", marginBottom: 2 }}>
-                  <span style={{ fontSize: 14, fontWeight: 800, color: W.text }}>รอยทาง (Roy Thang)</span>
+                  <span style={{ fontSize: 14, fontWeight: 800, color: W.text }}>Trace</span>
                   <span style={{ fontSize: 11, color: W.muted, marginLeft: "auto" }}>เมื่อครู่นี้</span>
                 </div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: W.dark, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
