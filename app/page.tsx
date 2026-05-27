@@ -271,253 +271,263 @@ export default function HomePage() {
           </div>
         </div>
 
-        <div className="balanceContainer">
-          <span>คะแนนคงเหลือ :</span>
-          <span className="balanceValue">{userData?.balance || 0}</span>
+        <div className="balanceContainer" style={{ marginTop: "4px" }}>
+          {/* วางไอคอนของคุณไว้ด้านหน้าสุดเพื่อนำสายตา */}
+          <Icon
+            icon="material-symbols:rewarded-ads"
+            width="28" /* 💡 แนะนำปรับลดขนาดจาก 50 เป็น 28 เพื่อไม่ให้ไอคอนเบียดสัดส่วนตัวอักษรบนจอมือถือครับ */
+            color="#F3BC00"
+          />
+          <span style={{ fontSize: "15px", fontWeight: "600", color: "#555" }}>
+            คะแนนคงเหลือ :
+          </span>
+          <span className="balanceValue" style={{ fontSize: "18px", fontWeight: "850", color: "#6b4729" }}>
+            {userData?.balance || 0}
+          </span>
+        </div>
+
+        {/* SEARCH */}
+        <div className="searchBar" style={{ position: "relative" }}>
+          <Icon icon="lucide:search" width="18" />
+
+          <input
+            placeholder="ค้นหา คาเฟ่ ร้านอาหาร สถานที่..."
+            value={keyword}
+            onChange={(e) => setKeyword(e.target.value)}
+          />
+
+          {/* 🔥 DROPDOWN */}
+          {suggestions.length > 0 && (
+            <div className="searchDropdown">
+              {suggestions.map((item, i) => (
+                <div
+                  key={i}
+                  className="searchItem"
+                  onClick={() => {
+                    if (item.type === "location") {
+                      router.push(`/cafe/${item.id}`);
+                    } else {
+                      router.push(`/category/${item.category_name.toLowerCase()}`);
+                    }
+                  }}
+                >
+                  <Icon
+                    icon={
+                      item.type === "location"
+                        ? "mdi:map-marker"
+                        : "mdi:shape"
+                    }
+                    width="18"
+                  />
+                  <span>
+                    {item.type === "location"
+                      ? item.locationName
+                      : item.category_name}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* SEARCH */}
-      <div className="searchBar" style={{ position: "relative" }}>
-        <Icon icon="lucide:search" width="18" />
+        {/* BANNER */}
+        <div
+          className="banner"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+        >
+          <img src={banners[currentBanner]} />
 
-        <input
-          placeholder="ค้นหา คาเฟ่ ร้านอาหาร สถานที่..."
-          value={keyword}
-          onChange={(e) => setKeyword(e.target.value)}
-        />
 
-        {/* 🔥 DROPDOWN */}
-        {suggestions.length > 0 && (
-          <div className="searchDropdown">
-            {suggestions.map((item, i) => (
-              <div
-                key={i}
-                className="searchItem"
-                onClick={() => {
-                  if (item.type === "location") {
-                    router.push(`/cafe/${item.id}`);
-                  } else {
-                    router.push(`/category/${item.category_name.toLowerCase()}`);
-                  }
-                }}
-              >
-                <Icon
-                  icon={
-                    item.type === "location"
-                      ? "mdi:map-marker"
-                      : "mdi:shape"
-                  }
-                  width="18"
-                />
-                <span>
-                  {item.type === "location"
-                    ? item.locationName
-                    : item.category_name}
-                </span>
-              </div>
+          <div className="dots">
+            {banners.map((_, i) => (
+              <span key={i} className={i === currentBanner ? "active" : ""} />
             ))}
           </div>
-        )}
-      </div>
-
-      {/* BANNER */}
-      <div
-        className="banner"
-        onTouchStart={onTouchStart}
-        onTouchMove={onTouchMove}
-        onTouchEnd={onTouchEnd}
-      >
-        <img src={banners[currentBanner]} />
-
-
-        <div className="dots">
-          {banners.map((_, i) => (
-            <span key={i} className={i === currentBanner ? "active" : ""} />
-          ))}
         </div>
-      </div>
 
-      {/* HOT DEALS */}
-      <div className="sectionHeader">
-        <h3 style={{ fontSize: "20px", fontWeight: "bold" }}>
-          ดีลพิเศษ
-        </h3>
-        <span
-          style={{ cursor: "pointer" }}
-          onClick={() => setShowCount(prev => prev + 2)}
-        >
-          ดูเพิ่มเติม
-        </span>
-      </div>
+        {/* HOT DEALS */}
+        <div className="sectionHeader">
+          <h3 style={{ fontSize: "20px", fontWeight: "bold" }}>
+            ดีลพิเศษ
+          </h3>
+          <span
+            style={{ cursor: "pointer" }}
+            onClick={() => setShowCount(prev => prev + 2)}
+          >
+            ดูเพิ่มเติม
+          </span>
+        </div>
 
-      <div className="hotDeals">
-        {shuffledCoupons.slice(0, showCount).map((c) => {
+        <div className="hotDeals">
+          {shuffledCoupons.slice(0, showCount).map((c) => {
 
-          const location = locations.find(
-            (l) => l.id === c.location_id
-          );
+            const location = locations.find(
+              (l) => l.id === c.location_id
+            );
 
-          if (!location) return null;
-
-          return (
-            <div
-              className="dealCard"
-              key={c.id}
-              onClick={() => setSelectedCoupon({ ...c, location })} // 🔥 คลิกแล้วเปิด Popup
-              style={{ cursor: "pointer" }}
-            >
-              <img src={location.mainImage} />
-
-              <div className="dealText">
-                <h2>
-                  {c.discount_type === "baht"
-                    ? `${c.discount_value}฿ off`
-                    : `${c.discount_value}% off`}
-                </h2>
-
-                <p>{location.locationName}</p>
-                <span style={{ fontSize: '11px', opacity: 0.9 }}>ใช้ {c.points_required} แต้ม</span>
-              </div>
-            </div>
-          )
-        })}
-      </div>
-
-      {/* CATEGORIES */}
-      <h3 style={{ fontSize: "20px", fontWeight: "bold" }}>
-        <br></br>หมวดหมู่
-      </h3>
-
-      <div className="categories">
-        {categories
-          .sort((a, b) => {
-            const order = ["cafe", "food", "temple", "sight"];
-            return order.indexOf(a.category_name?.toLowerCase().trim())
-              - order.indexOf(b.category_name?.toLowerCase().trim());
-          })
-          .map((c) => {
-
-            const name = c.category_name?.toLowerCase().trim();
-
-            const displayName =
-              name === "sight"
-                ? "Market"
-                : c.category_name;
-
-            let iconName = "maki:cafe";
-
-            if (name === "cafe") iconName = "mdi:coffee";
-            else if (name === "food") iconName = "mdi:silverware-fork-knife";
-            else if (name === "temple") iconName = "mdi:temple-buddhist";
-            else if (name === "sight") iconName = "mdi:storefront";
+            if (!location) return null;
 
             return (
               <div
+                className="dealCard"
                 key={c.id}
-                className="catItem"
-                onClick={() => {
-                  router.push(`/category/${c.category_name.toLowerCase().trim()}`);
-                }}
+                onClick={() => setSelectedCoupon({ ...c, location })} // 🔥 คลิกแล้วเปิด Popup
+                style={{ cursor: "pointer" }}
               >
-                <div className="catCircle">
-                  <Icon icon={iconName} width="32" />
+                <img src={location.mainImage} />
+
+                <div className="dealText">
+                  <h2>
+                    {c.discount_type === "baht"
+                      ? `${c.discount_value}฿ off`
+                      : `${c.discount_value}% off`}
+                  </h2>
+
+                  <p>{location.locationName}</p>
+                  <span style={{ fontSize: '11px', opacity: 0.9 }}>ใช้ {c.points_required} แต้ม</span>
                 </div>
-                <p>{displayName}</p>
               </div>
             )
           })}
-      </div>
+        </div>
 
-      {/* TRIP */}
-      <div
-        className="tripBanner"
-        onClick={() => router.push("/trip")}
-        style={{ cursor: "pointer" }}
-      >
-        <img src="/photo/tripextra.png" />
+        {/* CATEGORIES */}
+        <h3 style={{ fontSize: "20px", fontWeight: "bold" }}>
+          <br></br>หมวดหมู่
+        </h3>
 
-        <div className="tripText">
-          <h2>ทริปพิเศษ</h2>
-          <h2>รับคะแนน 2 เท่า</h2>
+        <div className="categories">
+          {categories
+            .sort((a, b) => {
+              const order = ["cafe", "food", "temple", "sight"];
+              return order.indexOf(a.category_name?.toLowerCase().trim())
+                - order.indexOf(b.category_name?.toLowerCase().trim());
+            })
+            .map((c) => {
 
-          <div className="arrowInside">
-            <Icon icon="lucide:chevron-right" width="26" />
+              const name = c.category_name?.toLowerCase().trim();
+
+              const displayName =
+                name === "sight"
+                  ? "Market"
+                  : c.category_name;
+
+              let iconName = "maki:cafe";
+
+              if (name === "cafe") iconName = "mdi:coffee";
+              else if (name === "food") iconName = "mdi:silverware-fork-knife";
+              else if (name === "temple") iconName = "mdi:temple-buddhist";
+              else if (name === "sight") iconName = "mdi:storefront";
+
+              return (
+                <div
+                  key={c.id}
+                  className="catItem"
+                  onClick={() => {
+                    router.push(`/category/${c.category_name.toLowerCase().trim()}`);
+                  }}
+                >
+                  <div className="catCircle">
+                    <Icon icon={iconName} width="32" />
+                  </div>
+                  <p>{displayName}</p>
+                </div>
+              )
+            })}
+        </div>
+
+        {/* TRIP */}
+        <div
+          className="tripBanner"
+          onClick={() => router.push("/trip")}
+          style={{ cursor: "pointer" }}
+        >
+          <img src="/photo/tripextra.png" />
+
+          <div className="tripText">
+            <h2>ทริปพิเศษ</h2>
+            <h2>รับคะแนน 2 เท่า</h2>
+
+            <div className="arrowInside">
+              <Icon icon="lucide:chevron-right" width="26" />
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* NAV */}
-      <div className="bottomNav">
+        {/* NAV */}
+        <div className="bottomNav">
 
-        <div className="navItem">
-          <Icon icon="material-symbols-light:home-rounded" width="28" />
-          <p>หน้าหลัก</p>
+          <div className="navItem">
+            <Icon icon="material-symbols-light:home-rounded" width="28" />
+            <p>หน้าหลัก</p>
+          </div>
+
+          <div
+            className="navItem"
+            onClick={() => router.push("/coupon")}
+          >
+            <Icon icon="mdi:coupon-outline" width="26" />
+            <p>คูปอง</p>
+          </div>
+
+          <div className="scan" onClick={() => router.push("/scan")}>
+            <Icon icon="tabler:qrcode" width="30" />
+          </div>
+
+          <div
+            className="navItem"
+            onClick={() => router.push("/game")}
+          >
+            <Icon icon="icon-park-solid:game-three" width="26" />
+            <p>เกม</p>
+          </div>
+
+          {/* 🔥 แทนที่แจ้งเตือนด้วย Mission */}
+          <div className="navItem" onClick={() => router.push("/mission")}>
+            <Icon icon="flowbite:clipboard-list-solid" width="26" />
+            <p>Mission</p>
+          </div>
         </div>
 
-        <div
-          className="navItem"
-          onClick={() => router.push("/coupon")}
-        >
-          <Icon icon="mdi:coupon-outline" width="26" />
-          <p>คูปอง</p>
-        </div>
 
-        <div className="scan" onClick={() => router.push("/scan")}>
-          <Icon icon="tabler:qrcode" width="30" />
-        </div>
+        {/* 🔥 Popup แลกคูปอง */}
+        {selectedCoupon && (
+          <div className="popupOverlay" onClick={() => setSelectedCoupon(null)}>
+            <div className="popupCard" onClick={(e) => e.stopPropagation()}>
+              <div className="closeBtn" onClick={() => setSelectedCoupon(null)}>✕</div>
 
-        <div
-          className="navItem"
-          onClick={() => router.push("/game")}
-        >
-          <Icon icon="icon-park-solid:game-three" width="26" />
-          <p>เกม</p>
-        </div>
+              <h1 className="popupShopName">{selectedCoupon.location.locationName}</h1>
+              <h2 className="popupCouponName">{selectedCoupon.coupon_name || "ส่วนลดพิเศษ"}</h2>
 
-        {/* 🔥 แทนที่แจ้งเตือนด้วย Mission */}
-        <div className="navItem" onClick={() => router.push("/mission")}>
-          <Icon icon="flowbite:clipboard-list-solid" width="26" />
-          <p>Mission</p>
-        </div>
-      </div>
-
-
-      {/* 🔥 Popup แลกคูปอง */}
-      {selectedCoupon && (
-        <div className="popupOverlay" onClick={() => setSelectedCoupon(null)}>
-          <div className="popupCard" onClick={(e) => e.stopPropagation()}>
-            <div className="closeBtn" onClick={() => setSelectedCoupon(null)}>✕</div>
-
-            <h1 className="popupShopName">{selectedCoupon.location.locationName}</h1>
-            <h2 className="popupCouponName">{selectedCoupon.coupon_name || "ส่วนลดพิเศษ"}</h2>
-
-            <div className="popupSection">
-              <p className="popupLabel">ส่วนลด</p>
-              <div className="popupDiscountBox">
-                ลด {selectedCoupon.discount_value} {selectedCoupon.discount_type === "baht" ? "บาท" : "%"}
+              <div className="popupSection">
+                <p className="popupLabel">ส่วนลด</p>
+                <div className="popupDiscountBox">
+                  ลด {selectedCoupon.discount_value} {selectedCoupon.discount_type === "baht" ? "บาท" : "%"}
+                </div>
               </div>
-            </div>
 
-            <div className="popupSection">
-              <p className="popupLabel">รายละเอียด</p>
-              <p className="popupDesc">{selectedCoupon.description}</p>
-            </div>
+              <div className="popupSection">
+                <p className="popupLabel">รายละเอียด</p>
+                <p className="popupDesc">{selectedCoupon.description}</p>
+              </div>
 
-            <div className="popupSection">
-              <p className="popupLabel">วันหมดอายุ</p>
-              <p className="popupExpiry">{selectedCoupon.expiry_date}</p>
-            </div>
+              <div className="popupSection">
+                <p className="popupLabel">วันหมดอายุ</p>
+                <p className="popupExpiry">{selectedCoupon.expiry_date}</p>
+              </div>
 
-            <button className="confirmRedeemBtn" onClick={() => handleClaim(selectedCoupon)}>
-              <Icon icon="mdi:trophy" width="18" style={{ marginRight: '8px' }} />
-              แลก {selectedCoupon.points_required} คะแนน
-            </button>
+              <button className="confirmRedeemBtn" onClick={() => handleClaim(selectedCoupon)}>
+                <Icon icon="mdi:trophy" width="18" style={{ marginRight: '8px' }} />
+                แลก {selectedCoupon.points_required} คะแนน
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      <style jsx global>{`
+        <style jsx global>{`
 
 /* 🌰 พื้นหลังนอก = น้ำตาล */
 body{
@@ -627,8 +637,15 @@ justify-content:space-between;
 .hotDeals{
 margin-top:10px;
 display:grid;
-grid-template-columns:1fr 1fr;
+grid-template-columns:1fr;
 gap:10px;
+}
+
+/* 💻 เพิ่มส่วนนี้ด้านล่างสุด: ถ้าจอใหญ่กว่า 768px (เช่น บนคอม) ให้กลับไปแบ่ง 2 คอลัมน์เหมือนเดิม */
+@media (min-width: 768px) {
+  .hotDeals {
+    grid-template-columns: 1fr 1fr;
+  }
 }
 
 .dealCard{
@@ -753,15 +770,16 @@ justify-content:center;
 margin-top:-30px;
 }
 
-@media(max-width:600px){
+@media(max-width:760px){
 
 /* ===== HOT DEAL (แก้ใหม่ทั้งหมด) ===== */
-.hotDeals{
-display:flex;
-gap:12px;
-overflow-x:auto;
-padding-bottom:10px;
-}
+.hotDeals {
+    display: flex !important;
+    flex-direction: column !important;
+    width: 100% !important;
+    overflow-x: hidden !important; /* ปิดการเลื่อนสไลด์ออกไปทางขวา */
+    gap: 15px !important;
+  }
 
 .hotDeals::-webkit-scrollbar{
 display:none;
@@ -772,6 +790,7 @@ min-width:220px;   /* ✅ สำคัญมาก */
 height:120px;
 flex-shrink:0;
 border-radius:10px;
+display: block !important;
 }
 
 .dealCard img{
@@ -976,6 +995,6 @@ height:250px;
 
 `}</style>
 
-    </div>
-  );
+      </div>
+      );
 }

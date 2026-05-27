@@ -250,7 +250,7 @@ export default function TripExtraPage({ onBack, initialTripId }: { onBack: () =>
                       location_id: item.id, // ✅ เพิ่มเพื่อใช้เช็คอินอัตโนมัติ
                       locationId: item.id,  // ✅ เพิ่มเผื่อไว้กันเหนียว
                       cafeId: item.id,
-
+                     // 1. ส่งชื่อร้านไปที่ตัวแปร name ตัวเดียวตรง ๆ
                       name: item.locationName || "ไม่พบชื่อ",
 
                       rating: item.rating ?? 0,
