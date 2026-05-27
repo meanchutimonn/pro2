@@ -388,14 +388,15 @@ export default function MissionPage() {
     checkedCount === activeMission.stops.length;
 
   // แก้ อัปเดต mission เป็น completed และสร้าง notification แจ้งผู้ใช้ว่าได้รับคะแนน
-  const handleClaim = async () => {
+  const handleClaim = async (mission?: TripDetail) => {
     const auth = getAuth();
     const user = auth.currentUser;
-    if (!user || !activeMission) return;
+    const active = mission || activeMission;
+    if (!user || !active) return;
 
     const userRef = doc(db, "users", user.uid);
     const missionRef = doc(db, "userMissions", user.uid);
-    const rewardPoints = activeMission.points ?? 50;
+    const rewardPoints = active.points ?? 50;
 
     const missionSnap = await getDoc(missionRef);
     const missionData = missionSnap.data();
@@ -425,8 +426,8 @@ export default function MissionPage() {
       title: "ภารกิจสำเร็จ 🎉",
       body: `คุณทำภารกิจสำเร็จแล้ว ได้รับ ${rewardPoints} คะแนน`,
       type: "mission_complete",
-      missionId: activeMission.id,
-      missionName: activeMission.title,
+      missionId: active.id,
+      missionName: active.title,
       points: rewardPoints,
       read: false,
       createdAt: serverTimestamp(),
