@@ -384,6 +384,8 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
     avg: number;
     count: number;
   }>>({});
+  const isDesktop = useIsDesktop();
+
   // ── sync activeTab จาก Firestore ───────────────────────────────────────────
   useEffect(() => {
     const auth = getAuth();
@@ -570,11 +572,21 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
       }
     `}</style>
 
+     {/* ── 💡 จุดที่แก้ไข: ปรับความกว้างและขอบมนแบบ Dynamic ── */}
       <div style={{
-        width: "100%", maxWidth: "1100px", minHeight: "100vh", background: "#fff",
-        borderRadius: "24px", overflow: "hidden", display: "flex",
-        flexDirection: "column", boxShadow: "0 20px 50px rgba(0,0,0,0.25)",
-        margin: "0 auto", backdropFilter: "blur(6px)",
+        width: "100%", 
+        maxWidth: "1100px", 
+        minHeight: isDesktop ? "auto" : "100vh", // ✅ โทรศัพท์ให้ยืดความสูงเต็มหน้าจอสุดทาง
+        background: "#fff",
+        // ✅ ถ้าเปิดบน Desktop (isDesktop = true) ให้ใช้ borderRadius: "24px" 
+        // ✅ ถ้าเปิดบนโทรศัพท์ (isDesktop = false) ให้ปรับเป็น "0px" เพื่อให้ขอบเหลี่ยมแนบชิดเต็มจอโทรศัพท์พอดี ไม่เห็นขอบทะลุ
+        borderRadius: isDesktop ? "24px" : "0px", 
+        overflow: "hidden", 
+        display: "flex",
+        flexDirection: "column", 
+        boxShadow: isDesktop ? "0 20px 50px rgba(0,0,0,0.25)" : "none", // ✅ โมบายไม่ต้องติดเงาลอยตัว
+        margin: isDesktop ? "20px auto" : "0 auto", // ✅ โมบายไม่ต้องเว้นช่องไฟขอบนอก
+        backdropFilter: "blur(6px)",
       }}>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", background: W.bg }}>
 
