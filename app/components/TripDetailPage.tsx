@@ -79,7 +79,28 @@ interface TripDetailPageProps {
   onHome?: () => void;
 }
 
+// ── แก้ไขคอมโพเนนต์ RouteIllustration ปรับตำแหน่งใต้ไอคอน และเปลี่ยนสีปุ่มให้เด่นชัดขึ้น ──
 function RouteIllustration({ onClick }: { onClick?: () => void }) {
+  // สไตล์สำหรับปุ่มที่เด่นชัด ไม่จมกลืน และอยู่ใต้ไอคอนพอดี
+  const buttonStyle: React.CSSProperties = {
+    background: "#FFFFFF",       // ✅ เปลี่ยนเป็นสีขาวเพื่อให้ตัดกับพื้นหลังสีเหลืองชัดเจน
+    color: "#614124",            // ✅ ใช้สีน้ำตาลเข้ม (W.dark) เป็นสีตัวอักษรให้เข้าธีมแอป
+    border: "3px solid #614124", // ✅ เพิ่มขอบสีน้ำตาลเข้มหนาขึ้นนิดนึงสไตล์ Modern-Pixel
+    padding: "10px 24px",
+    borderRadius: "12px",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: "8px",
+    fontWeight: "800",           // ✅ เพิ่มความหนาตัวอักษรให้อ่านง่ายขึ้น
+    fontSize: "14px",
+    cursor: "pointer",
+    boxShadow: "0 6px 0px #614124", // ✅ เปลี่ยนเงาเป็นแนวพิกเซลดรอปชาโดว์หนาๆ ด้านล่าง เพิ่มมิติให้ปุ่มลอยขึ้นมา
+    letterSpacing: "0.5px",
+    marginTop: "4px",            // ✅ ขยับระยะตำแหน่งด้านบนเล็กน้อยเมื่อรวมกลุ่ม
+    transition: "transform 0.1s ease, box-shadow 0.1s ease",
+  };
+
   return (
     <div
       onClick={onClick}
@@ -87,14 +108,32 @@ function RouteIllustration({ onClick }: { onClick?: () => void }) {
         width: "100%", height: 400,
         background: W.yellow,
         position: "relative",
-        display: "flex", alignItems: "center", justifyContent: "center",
+        // ✅ เปลี่ยนมาใช้ Flexbox จัดระเบียบกลุ่มไอคอนและปุ่มให้อยู่กึ่งกลางร่วมกันในแนวตั้ง
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: "16px",             // ✅ จัดระยะห่างระหว่างไอคอนแผนที่กับปุ่ม Your Journey ให้พอดี ไม่ดูจงใจแยกส่วนกันเกินไป
         overflow: "hidden",
         cursor: onClick ? "pointer" : "default",
-        transition: "background-color 0.2s ease",
       }}
       title="คลิกเพื่อดูแผนที่เส้นทาง"
     >
-      <Icon icon="memory:map" width="120" height="120" style={{ color: "#000", opacity: 0.8 }} />
+      {/* 🗺️ ไอคอนแผนที่ขนาดใหญ่ */}
+      <Icon
+        icon="memory:map"
+        width="110"
+        height="110"
+        style={{ color: "#614124", opacity: 0.95, filter: "drop-shadow(0px 2px 0px rgba(0,0,0,0.1))" }}
+      />
+
+      {/* ── 💡 ปุ่มสไตล์ใหม่: สีตัดชัดเจน อยู่ใต้ไอคอนพอดี ไม่หนักบนล่าง ── */}
+      <div style={buttonStyle}>
+        <Icon icon="lucide:map" width="20" height="20" color="#614124" />
+        YOUR JOURNEY
+      </div>
+
+      {/* ลายตารางพื้นหลังแบบจาง */}
       <div style={{ position: "absolute", inset: 0, opacity: 0.1, pointerEvents: "none" }}>
         <svg width="100%" height="100%">
           <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
