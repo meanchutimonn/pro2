@@ -2,7 +2,8 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import TripMapPage from "./TripMapPage";
-import { useRouter } from "next/navigation";
+// 🛠️ ตรวจสอบให้มั่นใจว่าดึง useRouter และ useSearchParams มาใช้งาน
+import { useRouter, useSearchParams } from "next/navigation";
 import { db } from "@/lib/firebase";
 import {
   collection, getDocs, query, where,
@@ -79,25 +80,23 @@ interface TripDetailPageProps {
   onHome?: () => void;
 }
 
-// ── แก้ไขคอมโพเนนต์ RouteIllustration ปรับตำแหน่งใต้ไอคอน และเปลี่ยนสีปุ่มให้เด่นชัดขึ้น ──
 function RouteIllustration({ onClick }: { onClick?: () => void }) {
-  // สไตล์สำหรับปุ่มที่เด่นชัด ไม่จมกลืน และอยู่ใต้ไอคอนพอดี
   const buttonStyle: React.CSSProperties = {
-    background: "#FFFFFF",       // ✅ เปลี่ยนเป็นสีขาวเพื่อให้ตัดกับพื้นหลังสีเหลืองชัดเจน
-    color: "#614124",            // ✅ ใช้สีน้ำตาลเข้ม (W.dark) เป็นสีตัวอักษรให้เข้าธีมแอป
-    border: "3px solid #614124", // ✅ เพิ่มขอบสีน้ำตาลเข้มหนาขึ้นนิดนึงสไตล์ Modern-Pixel
+    background: "#FFFFFF",       
+    color: "#614124",            
+    border: "3px solid #614124", 
     padding: "10px 24px",
     borderRadius: "12px",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     gap: "8px",
-    fontWeight: "800",           // ✅ เพิ่มความหนาตัวอักษรให้อ่านง่ายขึ้น
+    fontWeight: "800",           
     fontSize: "14px",
     cursor: "pointer",
-    boxShadow: "0 6px 0px #614124", // ✅ เปลี่ยนเงาเป็นแนวพิกเซลดรอปชาโดว์หนาๆ ด้านล่าง เพิ่มมิติให้ปุ่มลอยขึ้นมา
+    boxShadow: "0 6px 0px #614124", 
     letterSpacing: "0.5px",
-    marginTop: "4px",            // ✅ ขยับระยะตำแหน่งด้านบนเล็กน้อยเมื่อรวมกลุ่ม
+    marginTop: "4px",            
     transition: "transform 0.1s ease, box-shadow 0.1s ease",
   };
 
@@ -108,18 +107,16 @@ function RouteIllustration({ onClick }: { onClick?: () => void }) {
         width: "100%", height: 400,
         background: W.yellow,
         position: "relative",
-        // ✅ เปลี่ยนมาใช้ Flexbox จัดระเบียบกลุ่มไอคอนและปุ่มให้อยู่กึ่งกลางร่วมกันในแนวตั้ง
         display: "flex",
         flexDirection: "column",
         alignItems: "center",
         justifyContent: "center",
-        gap: "16px",             // ✅ จัดระยะห่างระหว่างไอคอนแผนที่กับปุ่ม Your Journey ให้พอดี ไม่ดูจงใจแยกส่วนกันเกินไป
+        gap: "16px",             
         overflow: "hidden",
         cursor: onClick ? "pointer" : "default",
       }}
       title="คลิกเพื่อดูแผนที่เส้นทาง"
     >
-      {/* 🗺️ ไอคอนแผนที่ขนาดใหญ่ */}
       <Icon
         icon="memory:map"
         width="110"
@@ -127,13 +124,11 @@ function RouteIllustration({ onClick }: { onClick?: () => void }) {
         style={{ color: "#614124", opacity: 0.95, filter: "drop-shadow(0px 2px 0px rgba(0,0,0,0.1))" }}
       />
 
-      {/* ── 💡 ปุ่มสไตล์ใหม่: สีตัดชัดเจน อยู่ใต้ไอคอนพอดี ไม่หนักบนล่าง ── */}
       <div style={buttonStyle}>
         <Icon icon="lucide:map" width="20" height="20" color="#614124" />
         YOUR JOURNEY
       </div>
 
-      {/* ลายตารางพื้นหลังแบบจาง */}
       <div style={{ position: "absolute", inset: 0, opacity: 0.1, pointerEvents: "none" }}>
         <svg width="100%" height="100%">
           <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
@@ -146,7 +141,6 @@ function RouteIllustration({ onClick }: { onClick?: () => void }) {
   );
 }
 
-// ── แก้ ปรับ StopRow ให้รับ userLoc และ cafes เพื่อคำนวณระยะทาง ──────────────────────
 function StopRow({
   stop,
   trip,
@@ -168,8 +162,6 @@ function StopRow({
   };
 }) {
   const router = useRouter();
-
-  // หาพิกัดร้านจากข้อมูลที่ดึงมาจาก Firebase
   const cafeData = cafes.find(c => c.locationName === stop.name);
 
   const displayRating =
@@ -178,7 +170,7 @@ function StopRow({
     stop.rating ||
     0;
 
-  let displayDistance = stop.distance || "0.0 km"; // ค่าเริ่มต้นถ้ายังโหลดตำแหน่งไม่เสร็จ
+  let displayDistance = stop.distance || "0.0 km"; 
 
   if (userLoc && cafeData?.latitude && cafeData?.longitude) {
     const dist = calculateDistance(userLoc.lat, userLoc.lng, cafeData.latitude, cafeData.longitude);
@@ -199,7 +191,6 @@ function StopRow({
           return;
         }
 
-        // ── แก้ ดึง active mission จาก Firestore ──────────────────────────
         const missionRef = doc(db, "userMissions", user.uid);
         const missionSnap = await getDoc(missionRef);
         const missionData = missionSnap.exists() ? missionSnap.data() : null;
@@ -220,7 +211,6 @@ function StopRow({
           return;
         }
 
-        // ── แก้ mission นี้ยังไม่ได้ activate → confirm ก่อน ─────────
         const isNewMission =
           !missionData || String(missionData.tripId) !== String(trip.id);
 
@@ -240,7 +230,6 @@ function StopRow({
           });
         }
 
-        // ── แก้ sync localStorage ด้วย (เพื่อ TripMapPage ที่ยังอ่านอยู่) ──
         localStorage.setItem("activeMission", JSON.stringify(trip));
         localStorage.setItem("activeMissionId", String(trip.id));
         localStorage.setItem("activeMissionCompleted", "false");
@@ -256,17 +245,12 @@ function StopRow({
         cursor: "pointer"
       }}
     >
-      {/* 1. รูปภาพสถานที่ */}
       <div style={{
         width: 85, height: 85, borderRadius: 15,
-        // 💡 ดักดึงรูปจาก stop.image ถ้าไม่มีให้ดึงจากฟีลด์ใน cafeData (ทั้งตัวเล็กตัวใหญ่)
         background: `url('${stop.image || cafeData?.mainImage || "/photo/placeholder.jpg"}') center/cover #eee`,
         flexShrink: 0, boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
       }} />
-      {/* 2. รายละเอียดข้อความ (ลบส่วนซ้ำซ้อนออกแล้ว) */}
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", textAlign: "left", alignItems: "flex-start" }}>
-
-        {/*<div style={{ fontSize: 16, fontWeight: 800, color: W.text, marginBottom: 4, width: "100%" }}>{stop.name}</div>*/}
         <div
           style={{
             flex: 1,
@@ -277,7 +261,6 @@ function StopRow({
             alignItems: "flex-start",
           }}
         >
-          {/* ชื่อสถานที่ */}
           <div
             style={{
               fontSize: "clamp(14px, 4vw, 16px)",
@@ -292,18 +275,16 @@ function StopRow({
             {stop.name}
           </div>
 
-          {/* Rating + Distance row — wrap ได้บนหน้าจอเล็ก */}
           <div
             style={{
               display: "flex",
               alignItems: "center",
-              flexWrap: "wrap",          // ← สำคัญ: ขึ้นบรรทัดใหม่เมื่อพื้นที่ไม่พอ
+              flexWrap: "wrap",          
               gap: "clamp(3px, 1.5vw, 5px)",
               marginBottom: "clamp(4px, 1.5vw, 6px)",
               rowGap: 4,
             }}
           >
-            {/* ดาว */}
             <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
               <span>⭐</span> <span style={{
                 fontSize: '13px', fontWeight: '800', gap: 8,
@@ -313,8 +294,6 @@ function StopRow({
               </span>
             </div>
 
-            {/* คะแนนและจำนวนรีวิว */}
-            {/* Divider — ซ่อนได้เมื่อ wrap */}
             <span
               style={{
                 color: "#aaa",
@@ -327,7 +306,6 @@ function StopRow({
               |
             </span>
 
-            {/* ระยะทาง */}
             <span
               style={{
                 fontSize: "clamp(13px, 3vw, 13px)",
@@ -340,7 +318,6 @@ function StopRow({
             </span>
           </div>
 
-          {/* คำอธิบาย */}
           <div
             style={{
               fontSize: "clamp(11px, 3vw, 12px)",
@@ -375,6 +352,11 @@ function StopRow({
 
 export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: TripDetailPageProps) {
   const trip = initialTrip;
+  
+  // 🛠️ จุดแก้ไขสำคัญ: เรียกใช้ router และ searchParams สำหรับจัดการปุ่มย้อนกลับแบบข้ามหน้า
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const fromPage = searchParams.get("from");
 
   const [activeTab, setActiveTab] = useState<"my" | "all">("all");
   const [cafes, setCafes] = useState<any[]>([]);
@@ -384,9 +366,7 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
     avg: number;
     count: number;
   }>>({});
-  const isDesktop = useIsDesktop();
 
-  // ── sync activeTab จาก Firestore ───────────────────────────────────────────
   useEffect(() => {
     const auth = getAuth();
     const unsubTab = onAuthStateChanged(auth, async (user) => {
@@ -395,14 +375,12 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
       if (missionSnap.exists() && missionSnap.data().status === "active") {
         setActiveTab("my");
       } else {
-        // fallback localStorage
         setActiveTab(localStorage.getItem("activeMission") ? "my" : "all");
       }
     });
     return () => unsubTab();
   }, []);
 
-  // ── 3. เพิ่ม State สำหรับตำแหน่งผู้ใช้ ──────────────────────────────────────────
   const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
 
   useEffect(() => {
@@ -412,7 +390,6 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
     };
     fetchCafes();
 
-    // ── 4. ดึงพิกัดตำแหน่งปัจจุบัน ────────────────────────────────────────────────
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
@@ -423,9 +400,9 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
         },
         (error) => console.error("Error Geolocation:", error),
         {
-          enableHighAccuracy: true, // ✅ ขอตำแหน่งแม่นยำสูง
-          timeout: 5000,            // ✅ ถ้าเกิน 5 วินาทีให้เลิกคอย
-          maximumAge: 60000         // ✅ ใช้ค่าตำแหน่งเดิมที่เคยดึงไว้ได้ภายใน 1 นาที (ช่วยให้กดเข้าใหม่แล้วโหลดเร็วขึ้น)
+          enableHighAccuracy: true, 
+          timeout: 5000,            
+          maximumAge: 60000         
         }
       );
     }
@@ -502,6 +479,16 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
     return match?.id;
   };
 
+  // 🛠️ ฟังก์ชันย้อนกลับตัวใหม่: สั่งปิด Component ด้วย และพาวาร์ปไปหน้า Mission พร้อมกันเลย
+  const handleBackCustom = () => {
+    if (fromPage === "mission") {
+      onBack();                 // 1. สั่งปิดหน้าต่างทริปนี้ (เคลียร์ State หน้าหลัก)
+      router.push("/mission");   // 2. ลัดคิวพาวาร์ปเปลี่ยน URL หนีไปที่หน้า Mission ทันที
+    } else {
+      onBack();                 // ถ้าเปิดมาจากหน้าแรกปกติ ก็ให้ปิดตัวตาม Flow เดิม
+    }
+  };
+
   if (!trip || !trip.stops) return <div>Loading...</div>;
 
   const checkedCount = trip.stops.filter((s: any) =>
@@ -515,7 +502,6 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
         onHome={onHome ?? onBack}
         onMapClose={() => setShowMap(false)}
         onClaim={async () => {
-          // แก้ อัปเดต Firestore ──────────────────────────────────────────
           const auth = getAuth();
           const user = auth.currentUser;
           if (user) {
@@ -549,7 +535,6 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
             });
           }
 
-          // ── clear localStorage ────────────────────────────────────────
           localStorage.removeItem("activeMission");
           localStorage.removeItem("activeMissionId");
           localStorage.removeItem("activeMissionCompleted");
@@ -572,21 +557,11 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
       }
     `}</style>
 
-     {/* ── 💡 จุดที่แก้ไข: ปรับความกว้างและขอบมนแบบ Dynamic ── */}
       <div style={{
-        width: "100%", 
-        maxWidth: "1100px", 
-        minHeight: isDesktop ? "auto" : "100vh", // ✅ โทรศัพท์ให้ยืดความสูงเต็มหน้าจอสุดทาง
-        background: "#fff",
-        // ✅ ถ้าเปิดบน Desktop (isDesktop = true) ให้ใช้ borderRadius: "24px" 
-        // ✅ ถ้าเปิดบนโทรศัพท์ (isDesktop = false) ให้ปรับเป็น "0px" เพื่อให้ขอบเหลี่ยมแนบชิดเต็มจอโทรศัพท์พอดี ไม่เห็นขอบทะลุ
-        borderRadius: isDesktop ? "24px" : "0px", 
-        overflow: "hidden", 
-        display: "flex",
-        flexDirection: "column", 
-        boxShadow: isDesktop ? "0 20px 50px rgba(0,0,0,0.25)" : "none", // ✅ โมบายไม่ต้องติดเงาลอยตัว
-        margin: isDesktop ? "20px auto" : "0 auto", // ✅ โมบายไม่ต้องเว้นช่องไฟขอบนอก
-        backdropFilter: "blur(6px)",
+        width: "100%", maxWidth: "1100px", minHeight: "100vh", background: "#fff",
+        borderRadius: "24px", overflow: "hidden", display: "flex",
+        flexDirection: "column", boxShadow: "0 20px 50px rgba(0,0,0,0.25)",
+        margin: "40px auto", backdropFilter: "blur(6px)",
       }}>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", background: W.bg }}>
 
@@ -596,7 +571,8 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
             borderBottom: `1px solid ${W.lightGray}`, display: "flex",
             alignItems: "center", justifyContent: "space-between", padding: "14px 20px",
           }}>
-            <button onClick={onBack} style={{
+            {/* 🛠️ เปลี่ยนการทำงานมาใช้ handleBackCustom ที่เราสร้างไว้ */}
+            <button onClick={handleBackCustom} style={{
               width: 42, height: 42, borderRadius: "50%", background: W.dark,
               border: "none", display: "flex", alignItems: "center", justifyContent: "center",
               cursor: "pointer", color: W.white, flexShrink: 0,
@@ -649,8 +625,8 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
                     trip={trip}
                     isChecked={historyIds.has((stop as any).location_id) || historyIds.has((stop as any).locationId)}
                     getCafeId={getCafeId}
-                    userLoc={userLoc} // ✅ ส่งตำแหน่งไปคำนวณ
-                    cafes={cafes}     // ✅ ส่งข้อมูลร้านไปหาพิกัด
+                    userLoc={userLoc} 
+                    cafes={cafes}     
                     reviewStat={reviewStats[stop.name]}
                   />
                 ))}

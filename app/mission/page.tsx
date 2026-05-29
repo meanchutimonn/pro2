@@ -501,14 +501,14 @@ export default function MissionPage() {
       `}</style>
 
       <div className="appContainer">
-        
+
         {/* ── 1. แบนเนอร์เตือนให้กดรับรางวัล (สไลด์จากขอบบน) ── */}
         {showNotificationBanner && activeMission && (
           <div style={{
             position: "absolute", top: 12, left: 0, right: 0,
             zIndex: 9999, display: "flex", justifyContent: "center", padding: "0 16px"
           }}>
-            <div 
+            <div
               className="banner-slide-down"
               onClick={handleBannerClick}
               style={{
@@ -686,7 +686,7 @@ export default function MissionPage() {
                   <>
                     {/* Mission progress card */}
                     <div style={{
-                      background: isReadyToClaim ? "#f0fdf4" : "#fffbeb", 
+                      background: isReadyToClaim ? "#f0fdf4" : "#fffbeb",
                       border: isReadyToClaim ? "1px solid #bbf7d0" : "1px solid #fef3c7",
                       borderRadius: 24, padding: 20,
                       display: "flex", alignItems: "center", gap: 16, marginBottom: 24,
@@ -695,10 +695,10 @@ export default function MissionPage() {
                         width: 48, height: 48, background: isReadyToClaim ? "#dcfce7" : "#fef3c7", borderRadius: 12,
                         display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
                       }}>
-                        <Icon 
-                          icon={isReadyToClaim ? "lucide:trophy" : "lucide:clipboard-list"} 
-                          width="28" height="28" 
-                          color={isReadyToClaim ? "#166534" : "#92400e"} 
+                        <Icon
+                          icon={isReadyToClaim ? "lucide:trophy" : "lucide:clipboard-list"}
+                          width="28" height="28"
+                          color={isReadyToClaim ? "#166534" : "#92400e"}
                         />
                       </div>
                       <div style={{ flex: 1 }}>
@@ -802,7 +802,8 @@ export default function MissionPage() {
                   return (
                     <div
                       key={item.id}
-                      onClick={() => router.push("/trip")}
+                      /* 🛠️ จุดที่แก้ไข: เพิ่ม Query Parameter ส่งไปหาหน้ารายละเอียด */
+                      onClick={() => router.push(`/trip?from=mission`)}
                       style={{
                         background: "white", borderRadius: 20, padding: 16,
                         border: `1px solid ${W.lightGray}`, cursor: "pointer",
@@ -811,6 +812,8 @@ export default function MissionPage() {
                         transition: "box-shadow 0.2s",
                       }}
                     >
+
+
                       <img
                         src={bgImage}
                         alt={item.title}
