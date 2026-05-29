@@ -561,7 +561,8 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
         width: "100%", maxWidth: "1100px", minHeight: "100vh", background: "#fff",
         borderRadius: "24px", overflow: "hidden", display: "flex",
         flexDirection: "column", boxShadow: "0 20px 50px rgba(0,0,0,0.25)",
-        margin: "40px auto", backdropFilter: "blur(6px)",
+       backdropFilter: "blur(6px)",
+        margin: typeof window !== "undefined" && window.innerWidth >= 768 ? "40px auto" : "0px auto",
       }}>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", background: W.bg }}>
 
