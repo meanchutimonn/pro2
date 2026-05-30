@@ -321,7 +321,7 @@ export default function CouponPage() {
                   className="confirmBtn"
                   onClick={handleConfirmClaim} // สั่งบันทึกหักคะแนนจริง
                 >
-                  ยืนยัน
+                  กดยืนยัน
                 </button>
                 
                 <button
