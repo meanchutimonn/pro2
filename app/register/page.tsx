@@ -6,6 +6,7 @@ import { auth, db } from "@/lib/firebase";
 import { signUp, sendOTP } from "@/lib/auth"; // ⭐ เรียกใช้ฟังก์ชันจาก lib/auth.ts
 import { doc, setDoc } from "firebase/firestore";
 import { Eye, EyeOff, User as UserIcon, Store } from "lucide-react";
+import { Icon } from "@iconify/react"; // ดึง Iconify มาใช้ทำสัญลักษณ์สวยๆ ในป๊อปอัป
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -32,6 +33,9 @@ export default function RegisterPage() {
   const [generatedOtp, setGeneratedOtp] = useState("");
   const [timer, setTimer] = useState(10);
 
+  // 🔔 เพิ่ม State สำหรับจัดการ Custom Alert Popup แทนของเดิมที่เป็นเหลี่ยมเบราว์เซอร์
+  const [alertMessage, setAlertMessage] = useState<string | null>(null);
+
   // นับถอยหลัง 10 วินาที
   useEffect(() => {
     let interval: any;
@@ -44,10 +48,10 @@ export default function RegisterPage() {
   // ฟังก์ชัน 1: ขอรับรหัส OTP
   const handleRequestOTP = async () => {
     if (!name || !gender || !email || !password) {
-      alert("กรุณากรอกข้อมูลให้ครบ");
+      setAlertMessage("กรุณากรอกข้อมูลให้ครบถ้วน");
       return;
     }
-    
+
     setLoading(true);
     const code = Math.floor(100000 + Math.random() * 900000).toString(); // สุ่มเลข 6 หลัก
     setGeneratedOtp(code);
@@ -59,14 +63,14 @@ export default function RegisterPage() {
       setStep(2);
       setTimer(10);
     } else {
-      alert("ส่งรหัสไม่สำเร็จ กรุณาเช็คการตั้งค่า EmailJS");
+      setAlertMessage("ส่งรหัสไม่สำเร็จ กรุณาเช็คการตั้งค่า EmailJS หรือตรวจสอบอีเมลของคุณอีกครั้ง");
     }
   };
 
   // ฟังก์ชัน 2: ยืนยัน OTP และสมัครสมาชิกจริง
   const handleVerifyAndRegister = async () => {
     if (otpInput !== generatedOtp) {
-      alert("รหัส OTP ไม่ถูกต้อง");
+      setAlertMessage("รหัส OTP ไม่ถูกต้อง กรุณาตรวจสอบอีกครั้ง");
       return;
     }
 
@@ -76,15 +80,14 @@ export default function RegisterPage() {
 
       if (result.success && result.user) {
         await setDoc(doc(db, "users", result.user.uid), {
-          name, gender, email, role, createdAt: new Date(),
+          name, gender, email, role, isNewUser: true, createdAt: new Date(),
         });
-        alert("สมัครสมาชิกสำเร็จ!");
-        router.push("/login"); // เด้งไปหน้า Login
+        setAlertMessage("สมัครสมาชิกสำเร็จ!");
       } else {
-        alert("ผิดพลาด: " + result.error);
+        setAlertMessage("ผิดพลาด: " + result.error);
       }
     } catch (error) {
-      alert("เกิดข้อผิดพลาดระหว่างบันทึกข้อมูล");
+      setAlertMessage("เกิดข้อผิดพลาดระหว่างบันทึกข้อมูล กรุณาลองใหม่อีกครั้ง");
     } finally {
       setLoading(false);
     }
@@ -92,10 +95,19 @@ export default function RegisterPage() {
 
   const isFormValid = name && email && gender && password.length >= 6 && password === confirmPassword;
 
+  // ฟังก์ชันช่วยจัดการเมื่อปิดหน้าต่างแจ้งเตือน (ถ้าสำเร็จให้ดีดหน้าไปต่อ)
+  const handleCloseAlert = () => {
+    const isSuccess = alertMessage?.includes("สำเร็จ");
+    setAlertMessage(null);
+    if (isSuccess) {
+      router.push("/introduce");
+    }
+  };
+
   return (
     <div style={styles.container}>
       <div style={styles.card}>
-        <img src="/photo/logo.png" style={styles.logo} />
+        <img src="/photo/newtrace.png" style={styles.logo} />
 
         {step === 1 ? (
           <>
@@ -117,25 +129,39 @@ export default function RegisterPage() {
               <input value={name} onChange={(e) => setName(e.target.value)} onFocus={() => setNameFocus(true)} onBlur={() => setNameFocus(false)} style={styles.input} />
             </div>
 
-            {/* Password - แก้ตำแหน่งตาให้ตรงกลาง */}
+            {/* Password */}
             <div style={styles.inputGroup}>
               <label style={{ ...styles.floatingLabel, top: password || passwordFocus ? -8 : 14, fontSize: password || passwordFocus ? 12 : 14, color: password || passwordFocus ? "#614124" : "#999" }}>
                 รหัสผ่าน
               </label>
-              <input type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)} onFocus={() => setPasswordFocus(true)} onBlur={() => setPasswordFocus(false)} style={{ ...styles.input, paddingRight: 40 }} />
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                onFocus={() => setPasswordFocus(true)}
+                onBlur={() => setPasswordFocus(false)}
+                style={{ ...styles.input, paddingRight: 40 }}
+              />
               <span onClick={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                {showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}
+                {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
               </span>
             </div>
 
-            {/* Confirm Password - แก้ตำแหน่งตาให้ตรงกลาง */}
+            {/* Confirm Password */}
             <div style={styles.inputGroup}>
               <label style={{ ...styles.floatingLabel, top: confirmPassword || confirmFocus ? -8 : 14, fontSize: confirmPassword || confirmFocus ? 12 : 14, color: confirmPassword || confirmFocus ? "#614124" : "#999" }}>
                 ยืนยันรหัสผ่าน
               </label>
-              <input type={showPassword ? "text" : "password"} value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} onFocus={() => setConfirmFocus(true)} onBlur={() => setConfirmFocus(false)} style={{ ...styles.input, paddingRight: 40, border: confirmPassword && password !== confirmPassword ? "1px solid red" : "1px solid #ddd" }} />
+              <input
+                type={showPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                onFocus={() => setConfirmFocus(true)}
+                onBlur={() => setConfirmFocus(false)}
+                style={{ ...styles.input, paddingRight: 40, border: confirmPassword && password !== confirmPassword ? "1px solid red" : "1px solid #ddd" }}
+              />
               <span onClick={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-                {showPassword ? <EyeOff size={18}/> : <Eye size={18}/>}
+                {showPassword ? <Eye size={18} /> : <EyeOff size={18} />}
               </span>
             </div>
 
@@ -179,7 +205,7 @@ export default function RegisterPage() {
           <>
             <h3 style={{ color: "#614124", marginBottom: "10px" }}>ยืนยันรหัส OTP</h3>
             <p style={styles.subtitle}>กรุณากรอกรหัส 6 หลักที่ส่งไปที่ {email}</p>
-            
+
             <input
               type="text"
               maxLength={6}
@@ -197,12 +223,31 @@ export default function RegisterPage() {
               )}
             </div>
 
-            <button onClick={handleVerifyAndRegister} disabled={loading || otpInput.length < 6} style={styles.button}>
+            <button onClick={handleVerifyAndRegister} disabled={loading || otpInput.length < 6} style={{ ...styles.button, background: otpInput.length < 6 ? "#ccc" : "#F8D45A", color: otpInput.length < 6 ? "#888" : "#614124" }}>
               {loading ? "กำลังสมัคร..." : "ยืนยันการสมัครสมาชิก"}
             </button>
           </>
         )}
       </div>
+
+      {/* 🔔 Custom Alert Popup ดีไซน์ทรงมนสไตล์เดียวกันกับโมดอลของแอป */}
+      {alertMessage && (
+        <div style={styles.popupOverlay} onClick={handleCloseAlert}>
+          <div style={styles.popupCard} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.alertIconWrapper}>
+              <Icon 
+                icon={alertMessage.includes("สำเร็จ") ? "ep:success-filled" : "solar:danger-triangle-bold"} 
+                width="52" 
+                color={alertMessage.includes("สำเร็จ") ? "#10B981" : "#F3BC00"} 
+              />
+            </div>
+            <p style={styles.alertMessageText}>{alertMessage}</p>
+            <button style={styles.alertConfirmBtn} onClick={handleCloseAlert}>
+              ตกลง
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -213,12 +258,12 @@ const styles: any = {
   inputGroup: { position: "relative", marginBottom: "15px" },
   floatingLabel: { position: "absolute", left: 12, background: "white", padding: "0 4px", transition: "all 0.2s ease", pointerEvents: "none", zIndex: 1 },
   input: { width: "100%", padding: "14px 12px", borderRadius: "8px", border: "1px solid #ddd", fontSize: "14px", outline: "none" },
-  eyeIcon: { 
-    position: "absolute", 
-    right: 12, 
-    top: "50%", 
-    transform: "translateY(-50%)", // ⭐ แก้ให้กึ่งกลางเป๊ะ
-    cursor: "pointer", 
+  eyeIcon: {
+    position: "absolute",
+    right: 12,
+    top: "50%",
+    transform: "translateY(-50%)", 
+    cursor: "pointer",
     color: "#999",
     display: "flex",
     alignItems: "center"
@@ -231,6 +276,54 @@ const styles: any = {
   radioLabel: { display: "flex", alignItems: "center", fontSize: "14px", cursor: "pointer" },
   roleBox: { flex: 1, padding: "12px", borderRadius: "8px", textAlign: "center", cursor: "pointer", fontWeight: "bold" },
   roleContent: { display: "flex", alignItems: "center", justifyContent: "center", gap: 6 },
-  logo: { width: "220px", display: "block", margin: "0 auto 10px" },
-  errorText: { color: "red", fontSize: 11, textAlign: "left", marginTop: -10, marginBottom: 10 }
+  logo: { width: "240px", display: "block", margin: "0 auto 10px" },
+  errorText: { color: "red", fontSize: 11, textAlign: "left", marginTop: -10, marginBottom: 10 },
+
+  // โครงสร้าง CSS ในรูปแบบ Object สำหรับหน้าต่างป๊อปอัปแจ้งเตือนอันใหม่
+  popupOverlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.6)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10000,
+    backdropFilter: "blur(4px)"
+  },
+  popupCard: {
+    background: "white",
+    width: "85%",
+    maxWidth: "320px",
+    borderRadius: "24px",
+    padding: "30px 24px 20px 24px",
+    textAlign: "center",
+    boxShadow: "0 10px 30px rgba(0,0,0,0.25)",
+    boxSizing: "border-box"
+  },
+  alertIconWrapper: {
+    marginBottom: "16px",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  alertMessageText: {
+    fontSize: "16px",
+    fontWeight: "600",
+    color: "#444",
+    lineHeight: "1.5", // 🌟 แก้ไขตรงนี้เป็น CamelCase เรียบร้อย บั๊กหายร้อยเปอร์เซ็นต์ครับ!
+    marginBottom: "24px",
+    whiteSpace: "pre-line"
+  },
+  alertConfirmBtn: {
+    background: "#614124", 
+    color: "white",
+    border: "none",
+    width: "100%",
+    padding: "12px",
+    borderRadius: "14px",
+    fontWeight: "700",
+    fontSize: "15px",
+    cursor: "pointer",
+    transition: "all 0.2s"
+  }
 };

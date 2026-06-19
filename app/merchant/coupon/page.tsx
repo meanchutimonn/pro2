@@ -32,6 +32,23 @@ export default function MerchantCouponPage() {
   const router = useRouter();
   const pathname = usePathname();
 
+  // 🔔 [NEW] State สำหรับจัดการ Custom Popup (แทน Alert และ Confirm)
+  const [popupConfig, setPopupConfig] = useState<{
+    isOpen: boolean;
+    type: "alert" | "confirm";
+    icon: string;
+    iconColor: string;
+    message: string;
+    onConfirm: () => void;
+  }>({
+    isOpen: false,
+    type: "alert",
+    icon: "ep:success-filled",
+    iconColor: "#10B981",
+    message: "",
+    onConfirm: () => {}
+  });
+
   useEffect(() => {
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -62,38 +79,67 @@ export default function MerchantCouponPage() {
 
   }, [router]);
 
-const [focus, setFocus] = useState("");
-  const createCoupon = async () => {
+  const [focus, setFocus] = useState("");
 
+  // ฟังก์ชันย่อยสำหรับเปิดป๊อปอัปแบบยืนยัน (Confirm)
+  const triggerConfirm = (message: string, onConfirmAction: () => void) => {
+    setPopupConfig({
+      isOpen: true,
+      type: "confirm",
+      icon: "solar:danger-triangle-bold",
+      iconColor: "#F59E0B", // สีส้มเตือนความปลอดภัย
+      message,
+      onConfirm: onConfirmAction
+    });
+  };
+
+  // ฟังก์ชันย่อยสำหรับเปิดป๊อปอัปแจ้งเตือน (Alert)
+  const triggerAlert = (message: string, isSuccess: boolean = true, onConfirmAction: () => void = () => {}) => {
+    setPopupConfig({
+      isOpen: true,
+      type: "alert",
+      icon: isSuccess ? "ep:success-filled" : "solar:close-circle-bold",
+      iconColor: isSuccess ? "#10B981" : "#EF4444",
+      message,
+      onConfirm: () => {
+        onConfirmAction();
+        setPopupConfig(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
+
+  // ฟังก์ชัน 1: สร้างคูปอง (เปลี่ยนเป็นแบบเปิดผ่าน Popup)
+  const createCoupon = async () => {
     if (!uid) return;
 
-    const confirmSave = confirm(
-      "เมื่อสร้างคูปองแล้ว คุณจะไม่สามารถแก้ไขหรือลบได้ จนกว่าคูปองจะหมดอายุ\n\nต้องการสร้างคูปองหรือไม่?"
+    triggerConfirm(
+      "เมื่อสร้างคูปองแล้ว คุณจะไม่สามารถแก้ไขหรือลบได้ จนกว่าคูปองจะหมดอายุ\n\nต้องการสร้างคูปองหรือไม่?",
+      async () => {
+        await addDoc(collection(db, "coupon"), {
+          location_id: uid,
+          ...form
+        });
+
+        setShowForm(false);
+        
+        // แจ้งเตือนเมื่อสำเร็จ แล้วทำการรีโหลดหน้า
+        triggerAlert("สร้างคูปองสำเร็จเรียบร้อยแล้ว!", true, () => {
+          window.location.reload();
+        });
+      }
     );
-
-    if (!confirmSave) return;
-
-    await addDoc(collection(db, "coupon"), {
-      location_id: uid,
-      ...form
-    });
-
-    alert("สร้างคูปองสำเร็จ");
-
-    setShowForm(false);
-    window.location.reload();
   };
+
+  // ฟังก์ชัน 2: ลบคูปอง (เปลี่ยนเป็นแบบเปิดผ่าน Popup)
   const handleDelete = async (id: string) => {
-  const confirmDelete = confirm("ต้องการลบคูปองนี้ใช่หรือไม่?");
-
-  if (!confirmDelete) return;
-
-  await deleteDoc(doc(db, "coupon", id));
-
-  alert("ลบคูปองสำเร็จ");
-   setCoupons(prev => prev.filter(c => c.id !== id));
-  setCoupons(prev => prev.filter(c => c.id !== id));
-};
+    triggerConfirm("ต้องการลบคูปองนี้ใช่หรือไม่?", async () => {
+      await deleteDoc(doc(db, "coupon", id));
+      
+      triggerAlert("ลบคูปองสำเร็จแล้ว!", true, () => {
+        setCoupons(prev => prev.filter(c => c.id !== id));
+      });
+    });
+  };
 
 
   if (!uid) return <p style={{ padding: 40 }}>กำลังโหลด...</p>;
@@ -323,7 +369,7 @@ const [focus, setFocus] = useState("");
     }
     style={inputStyle}
   >
-    <option value="">เลือกคะแนน</option>  {/* ⭐ สำคัญ */}
+    <option value="">เลือกคะแนน</option>
     <option value="50">50 คะแนน</option>
     <option value="100">100 คะแนน</option>
     <option value="150">150 คะแนน</option>
@@ -357,6 +403,44 @@ const [focus, setFocus] = useState("");
 
           </div>
 
+        </div>
+      )}
+
+      {/* 🔔 [NEW DOM] ส่วนของ Custom Alert / Confirm Popup สำหรับพาร์ทหน้าร้านค้า */}
+      {popupConfig.isOpen && (
+        <div style={styles.popupOverlay} onClick={() => setPopupConfig(prev => ({ ...prev, isOpen: false }))}>
+          <div style={styles.popupCard} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.alertIconWrapper}>
+              <Icon icon={popupConfig.icon} width="56" color={popupConfig.iconColor} />
+            </div>
+            <p style={styles.alertMessageText}>{popupConfig.message}</p>
+            
+            <div style={styles.popupBtnGroup}>
+              {popupConfig.type === "confirm" ? (
+                <>
+                  <button 
+                    style={styles.popupCancelBtn} 
+                    onClick={() => setPopupConfig(prev => ({ ...prev, isOpen: false }))}
+                  >
+                    ยกเลิก
+                  </button>
+                  <button 
+                    style={styles.popupConfirmBtn} 
+                    onClick={() => {
+                      popupConfig.onConfirm();
+                      setPopupConfig(prev => ({ ...prev, isOpen: false }));
+                    }}
+                  >
+                    ตกลง
+                  </button>
+                </>
+              ) : (
+                <button style={styles.popupConfirmBtn} onClick={popupConfig.onConfirm}>
+                  ตกลง
+                </button>
+              )}
+            </div>
+          </div>
         </div>
       )}
 
@@ -521,6 +605,7 @@ const modalBg = {
   display: "flex",
   justifyContent: "center",
   alignItems: "center",
+  zIndex: 999,
 };
 
 const modalCard = {
@@ -589,7 +674,7 @@ const floatingLabel: any = {
 const inputStyle: any = {
   width: "100%",
   border: "1px solid #d1d5db",
-  padding: "16px 12px 10px",   // ⭐ สำคัญ
+  padding: "16px 12px 10px",   
   borderRadius: 8,
 };
 
@@ -604,8 +689,75 @@ const deleteBtn = {
   height: 32,
   color: "#fff",
   fontSize: 14,
-display: "flex",              // ⭐ เพิ่ม
-  alignItems: "center",         // ⭐ เพิ่ม
+  display: "flex",              
+  alignItems: "center",         
   justifyContent: "center",  
   cursor: "pointer",
+};
+
+// 🔔 [NEW STYLES] โครงสร้างสไตล์ของ Custom Popup (ปรับเป็นคีย์ CamelCase ทั้งหมด)
+const styles: any = {
+  popupOverlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.5)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10000,
+    backdropFilter: "blur(4px)"
+  },
+  popupCard: {
+    background: "white",
+    width: "90%",
+    maxWidth: "340px",
+    borderRadius: "20px",
+    padding: "32px 24px 24px 24px",
+    textAlign: "center",
+    boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+    boxSizing: "border-box"
+  },
+  alertIconWrapper: {
+    marginBottom: "16px",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  alertMessageText: {
+    fontSize: "15px",
+    fontWeight: "600",
+    color: "#374151",
+    lineHeight: "1.6",
+    marginBottom: "28px",
+    whiteSpace: "pre-line"
+  },
+  popupBtnGroup: {
+    display: "flex",
+    gap: "12px",
+    justifyContent: "center"
+  },
+  popupConfirmBtn: {
+    flex: 1,
+    background: "#065f46", // ใช้สีเขียวเข้มพาร์ทเทเนอร์ร้านค้า คุมมู้ดแอนด์โทนได้ดี
+    color: "white",
+    border: "none",
+    padding: "12px",
+    borderRadius: "12px",
+    fontWeight: "700",
+    fontSize: "15px",
+    cursor: "pointer",
+    transition: "all 0.2s"
+  },
+  popupCancelBtn: {
+    flex: 1,
+    background: "#F3F4F6",
+    color: "#4B5563",
+    border: "1px solid #E5E7EB",
+    padding: "12px",
+    borderRadius: "12px",
+    fontWeight: "600",
+    fontSize: "15px",
+    cursor: "pointer",
+    transition: "all 0.2s"
+  }
 };

@@ -6,6 +6,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { onAuthStateChanged } from "firebase/auth";
 import { useRouter, usePathname } from "next/navigation";
 import { signOut } from "firebase/auth";
+import { Icon } from "@iconify/react"; // 🔔 เพิ่ม Icon เพื่อความสวยงามในโมดอล
 
 
 
@@ -15,14 +16,17 @@ export default function MerchantViewPage() {
   const router = useRouter();
   const pathname = usePathname();
   const dayMap: any = {
-  Mon: "จันทร์",
-  Tue: "อังคาร",
-  Wed: "พุธ",
-  Thu: "พฤหัสบดี",
-  Fri: "ศุกร์",
-  Sat: "เสาร์",
-  Sun: "อาทิตย์",
-};
+    Mon: "จันทร์",
+    Tue: "อังคาร",
+    Wed: "พุธ",
+    Thu: "พฤหัสบดี",
+    Fri: "ศุกร์",
+    Sat: "เสาร์",
+    Sun: "อาทิตย์",
+  };
+
+  // 🔔 [NEW] State สำหรับควบคุมการเปิด/ปิด Custom Logout Confirm Popup
+  const [showLogoutPopup, setShowLogoutPopup] = useState(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -43,13 +47,12 @@ export default function MerchantViewPage() {
     return () => unsubscribe();
   }, [router]);
 
+  // ฟังก์ชัน Logout ที่จะถูกเรียกหลังจากกดยืนยันใน Custom Popup แล้ว
   const handleLogout = async () => {
-  const confirmLogout = window.confirm("ต้องการออกจากระบบหรือไม่?");
-  if (!confirmLogout) return;
-
-  await signOut(auth);
-  router.push("/login");
-};
+    setShowLogoutPopup(false); // ปิดป๊อปอัป
+    await signOut(auth);
+    router.push("/login");
+  };
 
 
   if (loading) return <p style={{ padding: 40 }}>กำลังโหลด...</p>;
@@ -78,8 +81,8 @@ export default function MerchantViewPage() {
             src={data.mainImage}
             style={{
               width: "100%",
-              height: 350,          // ปรับความสูงได้ตามชอบ เช่น 300–400
-              objectFit: "cover",   // ครอปภาพให้เต็มกรอบ
+              height: 350,          
+              objectFit: "cover",   
               borderRadius: 12,
               boxShadow: "0 6px 20px rgba(0,0,0,0.1)",
             }}
@@ -94,16 +97,16 @@ export default function MerchantViewPage() {
 
       <div style={sectionStyle}>
         <h3 style={{ fontWeight: "bold" }}>
-  หมวดหมู่
-</h3>
+          หมวดหมู่
+        </h3>
         <p>{data.category}</p>
       </div>
 
       {data.extraImages?.length > 0 && (
         <div style={sectionStyle}>
           <h3 style={{ fontWeight: "bold" }}>
-  รูปภาพเพิ่มเติม
-</h3>
+            รูปภาพเพิ่มเติม
+          </h3>
           <div style={imageGridStyle}>
             {data.extraImages.map((img: string, i: number) => (
               <img key={i} src={img} style={extraImageStyle} alt="extra" />
@@ -116,64 +119,64 @@ export default function MerchantViewPage() {
       {data.schedule?.length > 0 && (
         <div style={sectionStyle}>
           {data.schedule?.length > 0 && (
-  <div style={sectionStyle}>
-    <h3 style={{ fontWeight: "bold" }}>
-  เวลา เปิด-ปิด
-</h3>
+            <div style={sectionStyle}>
+              <h3 style={{ fontWeight: "bold" }}>
+                เวลา เปิด-ปิด
+              </h3>
 
-    {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map((day) => {
-      const found = data.schedule.find((s: any) =>
-        s.days.includes(day)
-      );
+              {["Mon","Tue","Wed","Thu","Fri","Sat","Sun"].map((day) => {
+                const found = data.schedule.find((s: any) =>
+                  s.days.includes(day)
+                );
 
-      let text = "ปิดทำการ";
+                let text = "ปิดทำการ";
 
-      if (found) {
-        text = `${found.open} - ${found.close}`;
-      }
+                if (found) {
+                  text = `${found.open} - ${found.close}`;
+                }
 
-      return (
-        <div
-          key={day}
-          style={{
-    display: "flex",
-    gap: 20,              // 🔥 คุมระยะห่าง
-    padding: "6px 0",
-    borderBottom: "1px solid #eee",
-    alignItems: "center"
-  }}
-        >
-          <span style={{ fontWeight: 600, width: 80 }}>
-  {dayMap[day]}
-</span>
-          <span>{text}</span>
-        </div>
-      );
-    })}
-  </div>
-)}
+                return (
+                  <div
+                    key={day}
+                    style={{
+                      display: "flex",
+                      gap: 20,              
+                      padding: "6px 0",
+                      borderBottom: "1px solid #eee",
+                      alignItems: "center"
+                    }}
+                  >
+                    <span style={{ fontWeight: 600, width: 80 }}>
+                      {dayMap[day]}
+                    </span>
+                    <span>{text}</span>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       )}
 
       {data.address && (
         <div style={sectionStyle}>
           <h3 style={{ fontWeight: "bold" }}>
-ที่อยู่ร้านค้า
-</h3>
+            ที่อยู่ร้านค้า
+          </h3>
           <p>{data.address}</p>
         </div>
       )}
       {data.latitude && data.longitude && (
-  <div style={sectionStyle}>
-    <p>ละติจูด : {data.latitude}</p>
-    <p>ลองจิจูด : {data.longitude}</p>
-  </div>
-)}
+        <div style={sectionStyle}>
+          <p>ละติจูด : {data.latitude}</p>
+          <p>ลองจิจูด : {data.longitude}</p>
+        </div>
+      )}
       {data.googleMap && (
         <div style={sectionStyle}>
-         <h3 style={{ fontWeight: "bold" }}>
-  Google Map
-</h3>
+          <h3 style={{ fontWeight: "bold" }}>
+            Google Map
+          </h3>
           <iframe
             src={
               data.googleMap.includes("iframe")
@@ -197,9 +200,37 @@ export default function MerchantViewPage() {
       </button>
 
       <br></br>
-      <p onClick={handleLogout} style={logoutTextStyle}>
+      {/* 🔔 ปรับให้มากระตุ้นการเปิดสเตตโมดอลแทน window.confirm */}
+      <p onClick={() => setShowLogoutPopup(true)} style={logoutTextStyle}>
         ออกจากระบบ
       </p>
+
+      {/* 🔔 [NEW DOM] กล่องข้อความ Custom Logout Confirm Popup ทรงโมเดิร์น */}
+      {showLogoutPopup && (
+        <div style={styles.popupOverlay} onClick={() => setShowLogoutPopup(false)}>
+          <div style={styles.popupCard} onClick={(e) => e.stopPropagation()}>
+            <div style={styles.iconWrapper}>
+              <Icon icon="solar:logout-3-bold-duotone" width="58" color="#dc2626" />
+            </div>
+            <p style={styles.messageText}>ต้องการออกจากระบบหรือไม่?</p>
+            
+            <div style={styles.btnGroup}>
+              <button 
+                style={styles.cancelBtn} 
+                onClick={() => setShowLogoutPopup(false)}
+              >
+                ยกเลิก
+              </button>
+              <button 
+                style={styles.confirmBtn} 
+                onClick={handleLogout}
+              >
+                ตกลง
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
@@ -240,7 +271,6 @@ function TabBar({ pathname, router }: any) {
         Dashboard
       </button>
 
-      {/* ปุ่มใหม่ */}
       <button
         onClick={() => router.push("/merchant/coupon")}
         style={{
@@ -329,13 +359,6 @@ const extraImageStyle = {
   borderRadius: 10,
 };
 
-const scheduleCardStyle = {
-  background: "#f5f5f5",
-  padding: 10,
-  borderRadius: 8,
-  marginBottom: 10,
-};
-
 const buttonStyle = {
   marginTop: 20,
   padding: "12px 20px",
@@ -352,7 +375,69 @@ const logoutTextStyle = {
   color: "#dc2626",
   cursor: "pointer",
   fontWeight: 500,
+  display: "inline-block",
 };
 
-
-
+// 🔔 [NEW STYLES] สไตล์พิกัดของ Custom Popup ล็อกเอาต์
+const styles: any = {
+  popupOverlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.5)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 10000,
+    backdropFilter: "blur(4px)" // ทำพื้นหลังเบลอชิคๆ แบบ iOS
+  },
+  popupCard: {
+    background: "white",
+    width: "90%",
+    maxWidth: "340px",
+    borderRadius: "20px",
+    padding: "32px 24px 24px 24px",
+    textAlign: "center",
+    boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+    boxSizing: "border-box"
+  },
+  iconWrapper: {
+    marginBottom: "16px",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  messageText: {
+    fontSize: "16px",
+    fontWeight: "600",
+    color: "#374151",
+    lineHeight: "1.5",
+    marginBottom: "28px"
+  },
+  btnGroup: {
+    display: "flex",
+    gap: "12px",
+    justifyContent: "center"
+  },
+  confirmBtn: {
+    flex: 1,
+    background: "#065f46", // คุมธีมปุ่มตกลงด้วยเขียวพาร์ทเนอร์ร้านค้าหลัก
+    color: "white",
+    border: "none",
+    padding: "12px",
+    borderRadius: "12px",
+    fontWeight: "700",
+    fontSize: "15px",
+    cursor: "pointer"
+  },
+  cancelBtn: {
+    flex: 1,
+    background: "#F3F4F6",
+    color: "#4B5563",
+    border: "1px solid #E5E7EB",
+    padding: "12px",
+    borderRadius: "12px",
+    fontWeight: "600",
+    fontSize: "15px",
+    cursor: "pointer"
+  }
+};

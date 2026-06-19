@@ -1,12 +1,10 @@
-
 "use client";
 
-import { useEffect } from "react";
-import { getDoc } from "firebase/firestore";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { getDoc, doc, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
-import { doc, setDoc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
+import { Icon } from "@iconify/react"; // 🔔 เรียกใช้ไอคอนเพื่อยกระดับความพรีเมียม
 
 
 export default function MerchantPage() {
@@ -18,49 +16,27 @@ export default function MerchantPage() {
   const router = useRouter();
   const [mapLink, setMapLink] = useState("");
   const [latitude, setLatitude] = useState<number | null>(null);
-const [longitude, setLongitude] = useState<number | null>(null);
-
+  const [longitude, setLongitude] = useState<number | null>(null);
 
   /* ================= IMAGES ================= */
-
   const [mainImage, setMainImage] = useState<string | null>(null);
   const [extraImages, setExtraImages] = useState<string[]>([]);
 
+  /* ================= 🔔 STATES สำหรับ CONTROL CUSTOM POPUP 🔔 ================= */
+  const [popupState, setPopupState] = useState<{
+    show: boolean;
+    type: "success" | "confirmLeave" | "error";
+    message: string;
+  }>({
+    show: false,
+    type: "success",
+    message: "",
+  });
+
   const handleMainImage = async (e: any) => {
-  const file = e.target.files?.[0];
-  if (!file) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-  try {
-    const formData = new FormData();
-    formData.append("file", file);
-
-    const res = await fetch("/api/upload", {
-      method: "POST",
-      body: formData,
-    });
-
-    if (!res.ok) {
-      const text = await res.text();
-      console.error("Upload error:", text);
-      alert("Upload failed");
-      return;
-    }
-
-    const data = await res.json();
-    if (data.url) {
-      setMainImage(data.url);
-    }
-  } catch (err) {
-    console.error("Upload main image failed", err);
-  }
-};
-
-
-
-  const handleExtraImages = async (e: any) => {
-  const files = Array.from(e.target.files || []);
-
-  for (const file of files as File[]) {
     try {
       const formData = new FormData();
       formData.append("file", file);
@@ -73,30 +49,55 @@ const [longitude, setLongitude] = useState<number | null>(null);
       if (!res.ok) {
         const text = await res.text();
         console.error("Upload error:", text);
-        continue;
+        setPopupState({ show: true, type: "error", message: "อัปโหลดรูปภาพหลักล้มเหลว" });
+        return;
       }
 
       const data = await res.json();
-
       if (data.url) {
-        setExtraImages((prev) => [...prev, data.url]);
+        setMainImage(data.url);
       }
     } catch (err) {
-      console.error("Upload extra image failed", err);
+      console.error("Upload main image failed", err);
     }
-  }
-};
+  };
 
+  const handleExtraImages = async (e: any) => {
+    const files = Array.from(e.target.files || []);
 
+    for (const file of files as File[]) {
+      try {
+        const formData = new FormData();
+        formData.append("file", file);
+
+        const res = await fetch("/api/upload", {
+          method: "POST",
+          body: formData,
+        });
+
+        if (!res.ok) {
+          const text = await res.text();
+          console.error("Upload error:", text);
+          continue;
+        }
+
+        const data = await res.json();
+
+        if (data.url) {
+          setExtraImages((prev) => [...prev, data.url]);
+        }
+      } catch (err) {
+        console.error("Upload extra image failed", err);
+      }
+    }
+  };
 
   const removeExtraImage = (index: number) => {
     setExtraImages(extraImages.filter((_, i) => i !== index));
   };
 
   /* ================= SCHEDULE ================= */
-
   const daysList = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
   const [schedules, setSchedules] = useState([
     { days: [] as string[], open: "08:00", close: "18:00" },
   ]);
@@ -123,99 +124,103 @@ const [longitude, setLongitude] = useState<number | null>(null);
   };
 
   useEffect(() => {
-  const fetchLocation = async () => {
-    const user = auth.currentUser;
-    if (!user) return;
+    const fetchLocation = async () => {
+      const user = auth.currentUser;
+      if (!user) return;
 
-    const docRef = doc(db, "locations", user.uid);
-    const docSnap = await getDoc(docRef);
+      const docRef = doc(db, "locations", user.uid);
+      const docSnap = await getDoc(docRef);
 
-    if (docSnap.exists()) {
-      const data = docSnap.data();
-      setLatitude(data.latitude || null);
-setLongitude(data.longitude || null);
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        setLatitude(data.latitude || null);
+        setLongitude(data.longitude || null);
+        setLocationName(data.locationName || "");
+        setDescription(data.description || "");
+        setCategory(data.category || "");
+        setAddress(data.address || "");
+        setGoogleMap(data.googleMap || "");
+        setMainImage(data.mainImage || null);
+        setExtraImages(data.extraImages || []);
+        setSchedules(
+          data.schedule || [
+            { days: [], open: "08:00", close: "18:00" },
+          ]
+        );
+      }
+    };
 
-      setLocationName(data.locationName || "");
-      setDescription(data.description || "");
-      setCategory(data.category || "");
-      setAddress(data.address || "");
-      setGoogleMap(data.googleMap || "");
-      setMainImage(data.mainImage || null);
-      setExtraImages(data.extraImages || []);
-      setSchedules(
-        data.schedule || [
-          { days: [], open: "08:00", close: "18:00" },
-        ]
-      );
-    }
-  };
-
-
-  fetchLocation();
-}, []);
+    fetchLocation();
+  }, []);
 
   function extractLatLng(url: string) {
-  const matchAt = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
-
-  if (matchAt) {
-    return {
-      lat: parseFloat(matchAt[1]),
-      lng: parseFloat(matchAt[2]),
-    };
+    const matchAt = url.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (matchAt) {
+      return { lat: parseFloat(matchAt[1]), lng: parseFloat(matchAt[2]) };
+    }
+    const matchQ = url.match(/q=(-?\d+\.\d+),(-?\d+\.\d+)/);
+    if (matchQ) {
+      return { lat: parseFloat(matchQ[1]), lng: parseFloat(matchQ[2]) };
+    }
+    return null;
   }
 
-  const matchQ = url.match(/q=(-?\d+\.\d+),(-?\d+\.\d+)/);
-
-  if (matchQ) {
-    return {
-      lat: parseFloat(matchQ[1]),
-      lng: parseFloat(matchQ[2]),
-    };
-  }
-
-  return null;
-}
   /* ================= SAVE ================= */
-
   const handleSave = async () => {
     const user = auth.currentUser;
-    if (!user) return alert("กรุณาเข้าสู่ระบบ");
+    if (!user) {
+      setPopupState({ show: true, type: "error", message: "กรุณาเข้าสู่ระบบก่อนทำรายการ" });
+      return;
+    }
 
     await setDoc(
-  doc(db, "locations", user.uid),
-  {
-    locationName,
-    description,
-    category,
-    address,
-    googleMap,
+      doc(db, "locations", user.uid),
+      {
+        locationName,
+        description,
+        category,
+        address,
+        googleMap,
+        latitude,   
+        longitude,  
+        mainImage,
+        extraImages,
+        schedule: schedules,
+        ownerId: user.uid,
+        updatedAt: new Date(),
+      },
+      { merge: true }
+    );
 
-    latitude,   // ✅ เพิ่ม
-    longitude,  // ✅ เพิ่ม
-
-    mainImage,
-    extraImages,
-    schedule: schedules,
-    ownerId: user.uid,
-    updatedAt: new Date(),
-  },
-  { merge: true }
-);
-
-    alert("บันทึกเรียบร้อย ✅");
-    router.push("/merchant");
-
+    // 🔔 เปลี่ยนจาก alert() ดั้งเดิมเป็นเปิด Custom Success Popup 
+    setPopupState({
+      show: true,
+      type: "success",
+      message: "บันทึกเรียบร้อย",
+    });
   };
 
+  // 🔔 เปลี่ยนจาก window.confirm เป็นสเตตป๊อปอัปยืนยัน
   const handleCancel = () => {
-  const confirmLeave = window.confirm(
-    "คุณยังไม่ได้บันทึกข้อมูล\nต้องการออกจากหน้านี้หรือไม่?"
-  );
+    setPopupState({
+      show: true,
+      type: "confirmLeave",
+      message: "คุณยังไม่ได้บันทึกข้อมูล\nต้องการออกจากหน้านี้หรือไม่?",
+    });
+  };
 
-  if (confirmLeave) {
-    router.push("/merchant");
-  }
-};
+  // จัดการการยืนยันการปิดหรือออกหลังจากกดปุ่มใน Custom Popup
+  const confirmAction = () => {
+    if (popupState.type === "success") {
+      setPopupState((prev) => ({ ...prev, show: false }));
+      router.push("/merchant"); // ย้ายหน้าหลังจากบันทึกเสร็จและกดตกลง
+    } else if (popupState.type === "confirmLeave") {
+      setPopupState((prev) => ({ ...prev, show: false }));
+      router.push("/merchant"); // ยอมรับการออกจากหน้าโดยไม่บันทึก
+    } else {
+      setPopupState((prev) => ({ ...prev, show: false }));
+    }
+  };
 
 
   return (
@@ -236,96 +241,86 @@ setLongitude(data.longitude || null);
         onChange={(e) => setDescription(e.target.value)}
       />
       <h3 style={sectionTitle}>ที่อยู่ร้าน</h3>
-        <textarea
+      <textarea
         style={input}
         placeholder="เช่น 123 ถนนพระราม 9 แขวงบางกะปิ เขตห้วยขวาง กรุงเทพฯ"
         value={address}
         onChange={(e) => setAddress(e.target.value)}
-        />
+      />
 
-        <h3 style={sectionTitle}>ลิงก์ Google Map (Embed link)</h3>
-        <input
+      <h3 style={sectionTitle}>ลิงก์ Google Map (Embed link)</h3>
+      <input
         style={input}
         placeholder="วางลิงก์ iframe จาก Google Map"
         value={googleMap}
         onChange={(e) => setGoogleMap(e.target.value)}
-        />
+      />
 
-        <h3 style={sectionTitle}>ลิงก์ Google Maps (สำหรับคำนวณพิกัด)</h3>
+      <h3 style={sectionTitle}>ลิงก์ Google Maps (สำหรับคำนวณพิกัด)</h3>
+      <input
+        style={input}
+        placeholder="วางลิงก์ Google Maps ปกติ เช่น https://maps.google.com/..."
+        value={mapLink}
+        onChange={(e) => setMapLink(e.target.value)}
+      />
 
-<input
-  style={input}
-  placeholder="วางลิงก์ Google Maps ปกติ เช่น https://maps.google.com/..."
-  value={mapLink}
-  onChange={(e) => setMapLink(e.target.value)}
-/>
+      <button
+        style={{
+          marginBottom: 10,
+          padding: "8px 14px",
+          borderRadius: 8,
+          border: "none",
+          background: "#614124",
+          color: "#fff",
+          cursor: "pointer",
+          fontWeight: "bold"
+        }}
+        onClick={() => {
+          const coords = extractLatLng(mapLink);
+          if (!coords) {
+            setPopupState({ show: true, type: "error", message: "ลิงก์ไม่ถูกต้อง ❌" });
+            return;
+          }
+          setLatitude(coords.lat);
+          setLongitude(coords.lng);
+        }}
+      >
+        คำนวณพิกัด
+      </button>
 
-<button
-  style={{
-    marginBottom: 10,
-    padding: "8px 14px",
-    borderRadius: 8,
-    border: "none",
-    background: "#614124",
-    color: "#fff",
-    cursor: "pointer"
-  }}
-  onClick={() => {
-    const coords = extractLatLng(mapLink);
-
-    if (!coords) {
-      alert("ลิงก์ไม่ถูกต้อง ❌");
-      return;
-    }
-
-    setLatitude(coords.lat);
-    setLongitude(coords.lng);
-
-  }}
->
-  คำนวณพิกัด
-</button>
-
-{latitude && longitude && (
-  <div style={{ marginBottom: 15 }}>
-    <p>ละติจูด : {latitude}</p>
-    <p>ลองจิจูด : {longitude}</p>
-  </div>
-)}
-
-      
+      {latitude && longitude && (
+        <div style={{ marginBottom: 15, background: "#fcf8f2", padding: 10, borderRadius: 8 }}>
+          <p style={{ margin: "2px 0" }}>📍 ละติจูด : {latitude}</p>
+          <p style={{ margin: "2px 0" }}>📍 ลองจิจูด : {longitude}</p>
+        </div>
+      )}
 
       {/* ================= CATEGORY ================= */}
-
       <h3 style={sectionTitle}>หมวดหมู่ร้าน</h3>
-
       <div style={categoryWrapper}>
-        {["Cafe", "Food", "Temple", "Sight"].map(
-          (cat) => (
-            <button
-              key={cat}
-              onClick={() => setCategory(cat)}
-              style={{
-                ...categoryBtn,
-                backgroundColor: category === cat ? "#614124" : "white",
-                color: category === cat ? "white" : "#614124",
-                border: "1.5px solid #614124",
-              }}
-            >
-              {cat}
-            </button>
-          )
-        )}
+        {["Cafe", "Food", "Temple", "Sight"].map((cat) => (
+          <button
+            key={cat}
+            onClick={() => setCategory(cat)}
+            style={{
+              ...categoryBtn,
+              backgroundColor: category === cat ? "#614124" : "white",
+              color: category === cat ? "white" : "#614124",
+              border: "1.5px solid #614124",
+              fontWeight: "bold"
+            }}
+          >
+            {cat}
+          </button>
+        ))}
       </div>
 
       {/* ================= MAIN IMAGE ================= */}
-
       <h3 style={sectionTitle}>รูปหลักร้าน</h3>
-
       <div style={{ marginBottom: 20 }}>
         <label style={mainUploadBox}>
           {mainImage ? (
-            <img src={mainImage} style={mainPreviewImage} />
+            <img src={mainImage} style={mainPreviewImage} alt="main-preview" />
           ) : (
             <div style={uploadContent}>
               📷
@@ -343,13 +338,11 @@ setLongitude(data.longitude || null);
       </div>
 
       {/* ================= EXTRA IMAGES ================= */}
-
       <h3 style={sectionTitle}>รูปอื่น ๆ</h3>
-
       <div style={extraGrid}>
         {extraImages.map((img, index) => (
           <div key={index} style={extraItem}>
-            <img src={img} style={extraImageStyle} />
+            <img src={img} style={extraImageStyle} alt="extra-preview" />
             <button
               style={smallDeleteBtn}
               onClick={() => removeExtraImage(index)}
@@ -366,9 +359,7 @@ setLongitude(data.longitude || null);
       </div>
 
       {/* ================= SCHEDULE ================= */}
-
       <h3 style={sectionTitle}>เวลาเปิดปิด</h3>
-
       {schedules.map((schedule, index) => (
         <div key={index} style={scheduleBox}>
           {daysList.map((day) => (
@@ -377,12 +368,8 @@ setLongitude(data.longitude || null);
               onClick={() => toggleDay(index, day)}
               style={{
                 ...dayBtn,
-                backgroundColor: schedule.days.includes(day)
-                  ? "#614124"
-                  : "white",
-                color: schedule.days.includes(day)
-                  ? "white"
-                  : "#614124",
+                backgroundColor: schedule.days.includes(day) ? "#614124" : "white",
+                color: schedule.days.includes(day) ? "white" : "#614124",
                 border: "1.5px solid #614124",
               }}
             >
@@ -393,6 +380,7 @@ setLongitude(data.longitude || null);
           <div style={{ marginTop: 10 }}>
             <input
               type="time"
+              style={timeInput}
               value={schedule.open}
               onChange={(e) => {
                 const updated = [...schedules];
@@ -403,6 +391,7 @@ setLongitude(data.longitude || null);
             {" - "}
             <input
               type="time"
+              style={timeInput}
               value={schedule.close}
               onChange={(e) => {
                 const updated = [...schedules];
@@ -438,13 +427,67 @@ setLongitude(data.longitude || null);
           บันทึกข้อมูลร้าน
         </button>
       </div>
+
+      {/* ================= 🔔 [NEW DOM] GLOBAL CUSTOM POPUP DIALOG 🔔 ================= */}
+      {popupState.show && (
+        <div style={popupStyles.overlay}>
+          <div style={popupStyles.card}>
+            
+            {/* 1. แสดง Icon และสีหัวเรื่องตามประเภทของเหตุการณ์ */}
+            <div style={popupStyles.iconWrapper}>
+              {popupState.type === "success" && (
+                <Icon icon="solar:check-circle-bold-duotone" width="64" color="#065f46" />
+              )}
+              {popupState.type === "confirmLeave" && (
+                <Icon icon="solar:danger-triangle-bold-duotone" width="64" color="#F3BC00" />
+              )}
+              {popupState.type === "error" && (
+                <Icon icon="solar:close-circle-bold-duotone" width="64" color="#dc2626" />
+              )}
+            </div>
+
+            {/* 2. ข้อความแจ้งเตือน */}
+            <p style={popupStyles.messageText}>{popupState.message}</p>
+
+            {/* 3. จัดกลุ่มปุ่มตามเงื่อนไขเพื่อตอบสนอง User Action */}
+            <div style={popupStyles.btnGroup}>
+              {popupState.type === "confirmLeave" ? (
+                <>
+                  <button 
+                    style={popupStyles.secondaryBtn} 
+                    onClick={() => setPopupState((prev) => ({ ...prev, show: false }))}
+                  >
+                    ยกเลิก
+                  </button>
+                  <button 
+                    style={popupStyles.dangerConfirmBtn} 
+                    onClick={confirmAction}
+                  >
+                    ตกลง
+                  </button>
+                </>
+              ) : (
+                <button 
+                  style={{
+                    ...popupStyles.primaryBtn,
+                    background: popupState.type === "success" ? "#065f46" : "#614124"
+                  }} 
+                  onClick={confirmAction}
+                >
+                  ตกลง
+                </button>
+              )}
+            </div>
+
+          </div>
+        </div>
+      )}
       
     </div>
   );
 }
 
 /* ================= STYLE ================= */
-
 const container = {
   maxWidth: 900,
   margin: "auto",
@@ -465,6 +508,14 @@ const input = {
   marginBottom: 15,
   borderRadius: 10,
   border: "1px solid #614124",
+  boxSizing: "border-box" as const,
+};
+
+const timeInput = {
+  padding: "6px 10px",
+  borderRadius: "6px",
+  border: "1px solid #614124",
+  margin: "0 4px"
 };
 
 const sectionTitle = {
@@ -592,6 +643,7 @@ const addBtn = {
   backgroundColor: "#614124",
   color: "white",
   cursor: "pointer",
+  fontWeight: "bold"
 };
 
 const saveBtn = {
@@ -610,5 +662,81 @@ const cancelBtn = {
   border: "none",
   backgroundColor: "#ba0900",
   color: "white",
+  fontWeight: "bold",
   cursor: "pointer",
+};
+
+// 🔔 [NEW STYLES] สไตล์พิกัดของ Custom Popup ยุคใหม่ไร้เงา localhost
+const popupStyles: any = {
+  overlay: {
+    position: "fixed",
+    inset: 0,
+    background: "rgba(0,0,0,0.45)",
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    zIndex: 20000,
+    backdropFilter: "blur(5px)"
+  },
+  card: {
+    background: "#fff",
+    width: "90%",
+    maxWidth: "360px",
+    borderRadius: "24px",
+    padding: "32px 24px 24px 24px",
+    textAlign: "center",
+    boxShadow: "0 12px 30px rgba(0,0,0,0.15)",
+    boxSizing: "border-box"
+  },
+  iconWrapper: {
+    marginBottom: "18px",
+    display: "flex",
+    justifyContent: "center",
+    alignItems: "center"
+  },
+  messageText: {
+    fontSize: "16px",
+    fontWeight: "600",
+    color: "#4A3E3D", // คลุมโทนสีตัวอักษรน้ำตาลเข้ม
+    lineHeight: "1.6",
+    marginBottom: "26px",
+    whiteSpace: "pre-line"
+  },
+  btnGroup: {
+    display: "flex",
+    gap: "12px",
+    justifyContent: "center"
+  },
+  primaryBtn: {
+    flex: 1,
+    color: "white",
+    border: "none",
+    padding: "12px",
+    borderRadius: "14px",
+    fontWeight: "700",
+    fontSize: "15px",
+    cursor: "pointer"
+  },
+  secondaryBtn: {
+    flex: 1,
+    background: "#F3F4F6",
+    color: "#4B5563",
+    border: "1px solid #E5E7EB",
+    padding: "12px",
+    borderRadius: "14px",
+    fontWeight: "600",
+    fontSize: "15px",
+    cursor: "pointer"
+  },
+  dangerConfirmBtn: {
+    flex: 1,
+    background: "#ba0900", // สีแดงสำหรับการกดยืนยันที่จะละทิ้งข้อมูลไป
+    color: "white",
+    border: "none",
+    padding: "12px",
+    borderRadius: "14px",
+    fontWeight: "700",
+    fontSize: "15px",
+    cursor: "pointer"
+  }
 };
