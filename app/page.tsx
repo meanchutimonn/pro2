@@ -262,14 +262,43 @@ export default function HomePage() {
   return (
 
     <div className="page">
-      {/* HEADER - แก้ไข: เพิ่มแจ้งเตือนข้างโปรไฟล์ */}
+      {/* HEADER - แก้ไข: ปรับโครงสร้างสลับตำแหน่งกล่องตามขนาดหน้าจอ */}
       <div className="header">
         <div className="headerTop">
-          <h1>{getGreeting()}, {userData?.name || "User"} !</h1>
+          <h1 className="greeting-text">{getGreeting()}, {userData?.name || "User"} !</h1>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
+            {/* 💡 กล่องปุ่มเวอร์ชันคอมพิวเตอร์ (จะโดนสั่งซ่อนเมื่อเป็นหน้าจอมือถือ) */}
+            <div 
+              onClick={() => router.push("/introduce")}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '4px',
+                background: '#fff',
+                border: '1.5px solid #e0d5c8',
+                padding: '5px 8px',
+                borderRadius: '12px',
+                cursor: 'pointer',
+                boxShadow: '0 2px 6px rgba(107, 71, 41, 0.08)',
+                transition: 'all 0.2s ease',
+                flexShrink: 0
+              }}
+              className="introNavBtn desktopOnlyBtn"
+              title="แนะนำการใช้งาน"
+            >
+              <img 
+                src="/photo/newtrace.png" 
+                alt="TRACE รอยทางสามพราน Logo" 
+                style={{ width: '22px', height: '22px', objectFit: 'contain', flexShrink: 0 }} 
+              />
+              <Icon icon="mdi:help-circle-outline" width="20" style={{ color: "#6b4729", flexShrink: 0 }} />
+            </div>
+
+            {/* กระดิ่งแจ้งเตือน */}
             <div
-              style={{ position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+              style={{ position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
               onClick={() => { setHasNewNotification(false); router.push("/notifications"); }}
             >
               <Icon icon="basil:notification-on-solid" width="28" style={{ color: "#6b4729" }} />
@@ -282,28 +311,60 @@ export default function HomePage() {
               )}
             </div>
 
+            {/* ส่วนแสดงโปรไฟล์ผู้ใช้ */}
             {userData?.photoURL ? (
-              <img className="avatar" src={userData.photoURL} onClick={handleProfileClick} style={{ cursor: "pointer" }} />
+              <img className="avatar" src={userData.photoURL} onClick={handleProfileClick} style={{ cursor: "pointer", flexShrink: 0 }} />
             ) : (
-              <div className="avatar placeholder" onClick={handleProfileClick} style={{ cursor: "pointer" }}>
+              <div className="avatar placeholder" onClick={handleProfileClick} style={{ cursor: "pointer", flexShrink: 0 }}>
                 <Icon icon="mdi:account" width="28" />
               </div>
             )}
           </div>
         </div>
 
-        <div className="balanceContainer" style={{ marginTop: "4px" }}>
-          <Icon
-            icon="material-symbols:rewarded-ads"
-            width="28"
-            color="#F3BC00"
-          />
-          <span style={{ fontSize: "15px", fontWeight: "600", color: "#555" }}>
-            คะแนนคงเหลือ :
-          </span>
-          <span className="balanceValue" style={{ fontSize: "18px", fontWeight: "850", color: "#6b4729" }}>
-            {userData?.balance || 0}
-          </span>
+        {/* บรรทัดแสดงคะแนนคงเหลือ + กล่องปุ่มแนะนําการใช้งานบนมือถือ */}
+        <div className="balanceContainer" style={{ marginTop: "4px", display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
+            <Icon
+              icon="material-symbols:rewarded-ads"
+              width="28"
+              color="#F3BC00"
+            />
+            <span style={{ fontSize: "15px", fontWeight: "600", color: "#555" }}>
+              คะแนนคงเหลือ :
+            </span>
+            <span className="balanceValue" style={{ fontSize: "18px", fontWeight: "850", color: "#6b4729" }}>
+              {userData?.balance || 0}
+            </span>
+          </div>
+
+          {/* 💡 กล่องปุ่มเวอร์ชันมือถือ (จะอยู่บรรทัดเดียวกับแต้ม ใต้โปรไฟล์พอดี และโดนสั่งซ่อนบนคอม) */}
+          <div 
+            onClick={() => router.push("/introduce")}
+            style={{
+              display: 'none',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '6px',
+              background: '#fff',
+              border: '1.5px solid #e0d5c8',
+              padding: '8px 14px',
+              borderRadius: '16px',
+              cursor: 'pointer',
+              boxShadow: '0 2px 6px rgba(107, 71, 41, 0.08)',
+              transition: 'all 0.2s ease',
+              flexShrink: 0,
+              minHeight: '44px',      // 🔥 เพิ่มความสูงขั้นต่ำเพื่อแก้ปัญหาผู้ใช้งานกดดูยากบนหน้าจอมือถือ
+            }}
+            className="introNavBtn mobileOnlyBtn"
+          >
+            <img 
+              src="/photo/newtrace.png" 
+              alt="TRACE รอยทางสามพราน Logo" 
+              style={{ width: '26px', height: '26px', objectFit: 'contain', flexShrink: 0 }} 
+            />
+            <Icon icon="mdi:help-circle-outline" width="20" style={{ color: "#6b4729", flexShrink: 0 }} />
+          </div>
         </div>
 
         {/* SEARCH */}
@@ -459,7 +520,7 @@ export default function HomePage() {
           })}
       </div>
 
-      {/* TRIP */}
+      {/* TRIP - แก้ไขแก้คอมเมนต์ JSX เรียบร้อยแล้ว */}
       <div
         className="tripBanner"
         onClick={() => router.push("/trip")}
@@ -546,28 +607,12 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* 🔔 [NEW] Custom Alert Popup ดีไซน์ทันสมัย มาแทนที่ alert() แบบเดิม */}
+      {/* 🔔 [FIXED] Custom Alert Popup แยกโลจิกตกลง กับ กากบาท ชัดเจน */}
       {alertMessage && (
-        <div className="popupOverlay" onClick={() => {
-          setAlertMessage(null);
-          if (alertMessage.includes("แลกคูปองสำเร็จ")) {
-            window.location.reload();
-          }
-          if (alertMessage.includes("ยังไม่ได้เข้าสู่ระบบ") || alertMessage.includes("กรุณาเข้าสู่ระบบ")) {
-            router.push("/login");
-          }
-        }}>
+        <div className="popupOverlay" onClick={() => setAlertMessage(null)}>
           <div className="customAlertCard" onClick={(e) => e.stopPropagation()}>
-            {/* ✕ เพิ่มปุ่มกากบาทที่มุมขวาบนสำหรับปิด Alert */}
-            <div className="alertCloseBtn" onClick={() => {
-              setAlertMessage(null);
-              if (alertMessage.includes("แลกคูปองสำเร็จ")) {
-                window.location.reload();
-              }
-              if (alertMessage.includes("ยังไม่ได้เข้าสู่ระบบ") || alertMessage.includes("กรุณาเข้าสู่ระบบ")) {
-                router.push("/login");
-              }
-            }}>✕</div>
+            {/* ✕ ปุ่มกากบาทขวาบน: กดแล้วจะปิดหน้าต่างอย่างเดียว คงอยู่ที่หน้าเดิม */}
+            <div className="alertCloseBtn" onClick={() => setAlertMessage(null)}>✕</div>
 
             <div className="alertIconWrapper">
               <Icon
@@ -580,11 +625,13 @@ export default function HomePage() {
             <button
               className="alertConfirmBtn"
               onClick={() => {
+                const currentMsg = alertMessage;
                 setAlertMessage(null);
-                if (alertMessage.includes("แลกคูปองสำเร็จ")) {
+                
+                if (currentMsg.includes("แลกคูปองสำเร็จ")) {
                   window.location.reload();
                 }
-                if (alertMessage.includes("ยังไม่ได้เข้าสู่ระบบ") || alertMessage.includes("กรุณาเข้าสู่ระบบ")) {
+                if (currentMsg.includes("ยังไม่ได้เข้าสู่ระบบ") || currentMsg.includes("กรุณาเข้าสู่ระบบ")) {
                   router.push("/login");
                 }
               }}
@@ -892,7 +939,7 @@ font-size:12px;
   font-weight:900;    
   line-height:1.2;
   letter-spacing:0.5px; 
-    text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  text-shadow: 0 2px 8px rgba(0,0,0,0.4);
 }
 
 }
@@ -1000,7 +1047,8 @@ height:250px;
   align-items: center;
 }
 
-.headerTop h1 {
+/* 💻 ขนาดฟอนต์เวอร์ชันคอมพิวเตอร์ตามที่เดฟต้องการ */
+.greeting-text {
   font-size: 28px;
   font-weight: 700;
   margin: 0;
@@ -1012,9 +1060,19 @@ height:250px;
   gap: 6px;
 }
 
+/* 📱 ปรับแต่งแยก Layout และฟอนต์สำหรับหน้าจอมือถือ (ความกว้างไม่เกิน 480px) */
 @media (max-width: 480px) {
-  .headerTop h1 {
-    font-size: 22px;
+  .greeting-text {
+    font-size: 22px !important;    /* 👈 แก้ไข: ดึงขนาดฟอนต์คำทักทายกลับมาเท่าเดิม (16px) เรียบร้อย */
+    max-width: 65% !important;    /* ป้องกันตัวอักษรยาวเกินจนเบียดรูปแจ้งเตือน */
+  }
+
+  .desktopOnlyBtn {
+    display: none !important;     /* ซ่อนปุ่มทัวร์ในคอมพิวเตอร์เมื่อเปิดบนมือถือ */
+  }
+
+  .mobileOnlyBtn {
+    display: flex !important;     /* เปิดแสดงผลปุ่มทัวร์คู่กับแต้มคงเหลือเฉพาะในมือถือ */
   }
 }
   
@@ -1027,12 +1085,12 @@ height:250px;
 .popupSection { margin-bottom: 16px; }
 .popupLabel { font-size: 12px; color: #999; margin-bottom: 4px; }
 .popupDiscountBox { background: #fff7cc; border: 1px solid #facc15; padding: 12px; border-radius: 10px; text-align: center; font-weight: 800; font-size: 18px; color: #333; }
-.popupDesc { font-size: 14px; color: #444; line-height: 1.4; }
+.popupSection p.popupDesc { font-size: 14px; color: #444; line-height: 1.4; }
 .popupExpiry { font-size: 14px; font-weight: 600; color: #333; }
 .confirmRedeemBtn { background: #facc15; color: white; border: none; width: 100%; padding: 14px; border-radius: 12px; font-weight: 800; font-size: 16px; margin-top: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
 .confirmRedeemBtn:active { transform: scale(0.97); }
 
-/* 🔔 [NEW CSS] สไตล์สำหรับการ์ดแจ้งเตือน Custom Alert ป็อปอัป */
+/* 🔔 สไตล์สำหรับการ์ดแจ้งเตือน Custom Alert ป็อปอัป */
 .customAlertCard {
   background: white;
   width: 85%;
@@ -1041,10 +1099,9 @@ height:250px;
   padding: 36px 24px 20px 24px;
   text-align: center;
   box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-  position: relative; /* สำหรับจัดตำแหน่งปุ่มกากบาทแบบ absolute */
+  position: relative;
   animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-/* คลาสใหม่สำหรับปุ่มกากบาทปิด Alert */
 .alertCloseBtn {
   position: absolute;
   top: 15px;
@@ -1074,7 +1131,6 @@ height:250px;
   white-space: pre-line;
 }
 
-/* ✅ ปรับเปลี่ยนปุ่มตกลงให้เป็นสีน้ำตาลตามธีมแอป */
 .alertConfirmBtn {
   background: #614124; 
   color: white;
@@ -1091,6 +1147,12 @@ height:250px;
 .alertConfirmBtn:active {
   transform: scale(0.96);
   opacity: 0.9;
+}
+
+/* 🖱️ เพิ่ม Effect ตอนเอานิ้วจิ้มปุ่ม introduce เพื่อความสมูทในการกด */
+.introNavBtn:active {
+  transform: scale(0.95);
+  background-color: #faf6f0 !important;
 }
 
 `}</style>

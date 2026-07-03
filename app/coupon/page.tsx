@@ -25,8 +25,19 @@ export default function CouponPage() {
   const [balance, setBalance] = useState(0);
 
   const [selectedCoupon, setSelectedCoupon] = useState<any>(null);
-  const [showConfirmPopup, setShowConfirmPopup] = useState(false); // 🔥 State ควบคุมการเปิด/ปิด Pop-up ยืนยันชั้นที่สอง
+  const [showConfirmPopup, setShowConfirmPopup] = useState(false); 
   const [userId, setUserId] = useState<string | null>(null);
+
+  // 🔔 [NEW] State สำหรับคุมการเปิด/ปิด Toast แจ้งเตือนสไลด์จากด้านบน
+  const [toast, setToast] = useState<{
+    show: boolean;
+    type: "success" | "warning";
+    message: string;
+  }>({
+    show: false,
+    type: "success",
+    message: ""
+  });
 
   const [activeTab, setActiveTab] = useState("coupon");
   const [sortBy, setSortBy] = useState("default");
@@ -41,7 +52,6 @@ export default function CouponPage() {
 
       setUserId(user.uid);
 
-      // ดึงข้อมูลคะแนน user
       const userDoc = await getDoc(doc(db, "users", user.uid));
 
       if (userDoc.exists()) {
@@ -49,7 +59,6 @@ export default function CouponPage() {
         setBalance(userData.balance || 0);
       }
 
-      // coupon
       const couponSnap = await getDocs(collection(db, "coupon"));
       setCoupons(
         couponSnap.docs.map((doc) => ({
@@ -58,7 +67,6 @@ export default function CouponPage() {
         }))
       );
 
-      // location
       const locSnap = await getDocs(collection(db, "locations"));
       setLocations(
         locSnap.docs.map((doc) => ({
@@ -67,7 +75,6 @@ export default function CouponPage() {
         }))
       );
 
-      // user_coupon
       const mySnap = await getDocs(
         query(collection(db, "user_coupons"), where("user_id", "==", user.uid))
       );
@@ -78,29 +85,35 @@ export default function CouponPage() {
     return () => unsubscribe();
   }, []);
 
-  // 🔥 ฟังก์ชันดักจับปุ่มกด "แลกคะแนน" เพื่อเปิด Pop-up คอนเฟิร์มก่อน
+  // ฟังก์ชันแสดง Toast แจ้งเตือนแล้วเคลียร์ตัวเองทิ้งใน 3 วินาที
+  const showToastNotification = (type: "success" | "warning", message: string) => {
+    setToast({ show: true, type, message });
+    setTimeout(() => {
+      setToast((prev) => ({ ...prev, show: false }));
+    }, 3000); // 3 วินาทีแล้วจางหายไปอัตโนมัติ
+  };
+
+  // 🔥 เช็คพอยท์ก่อนแลกรับสิทธิ์
   const triggerClaimVerify = (coupon: any) => {
     if (!userId) {
-      alert("กรุณาเข้าสู่ระบบ");
+      showToastNotification("warning", "กรุณาเข้าสู่ระบบเพื่อใช้งานคูปอง");
       return;
     }
 
     if (balance < Number(coupon.points_required)) {
-      alert("คะแนนของคุณไม่พอ");
+      showToastNotification("warning", "คะแนนของคุณไม่เพียงพอสำหรับการแลกรับสิทธิ์");
       return;
     }
 
-    // ผ่านเงื่อนไข -> บันทึกคูปองที่เลือก และเปิด Pop-up คอนเฟิร์มชั้นที่สอง
     setSelectedCoupon(coupon);
     setShowConfirmPopup(true);
   };
 
-  // 🔥 ฟังก์ชันทำงานจริงเมื่อกดยืนยันหักคะแนน
+  // 🔥 ฟังก์ชันหักคะแนนจริงหลังกดยืนยันจากหน้าต่าง Popup
   const handleConfirmClaim = async () => {
     if (!selectedCoupon || !userId) return;
 
     try {
-      // 1. เพิ่มข้อมูล user_coupon ลงฐานข้อมูล
       await addDoc(collection(db, "user_coupons"), {
         user_id: userId,
         coupon_id: selectedCoupon.id,
@@ -108,12 +121,10 @@ export default function CouponPage() {
         created_at: new Date(),
       });
 
-      // 2. หักคะแนนสะสมของผู้ใช้ในคอลเลกชัน users
       await updateDoc(doc(db, "users", userId), {
         balance: balance - Number(selectedCoupon.points_required),
       });
 
-      // 3. ยิงประวัติลงตารางแจ้งเตือนในระบบ
       await addDoc(collection(db, "notifications"), {
         userId: userId,
         title: "แลกคูปองสำเร็จ 🎉",
@@ -125,18 +136,20 @@ export default function CouponPage() {
         createdAt: serverTimestamp(),
       });
 
-      // 4. อัปเดตข้อมูล State ในระบบหน้าจอ
       setBalance((prev) => prev - Number(selectedCoupon.points_required));
       setMyCoupons((prev) => [...prev, { coupon_id: selectedCoupon.id }]);
 
-      alert("เก็บคูปองสำเร็จ!");
-      
-      // 5. เคลียร์ค่ากลับสู่หน้าแรกปกติ ปิดทุกหน้าต่าง
+      // ปิดป๊อปอัพทั้งหมดลงไป
       setShowConfirmPopup(false);
       setSelectedCoupon(null);
+      
+      // 🌟 ยิงการแจ้งเตือนสไลด์ลงมาจากด้านบนจอแทนป๊อปอัพซ้ำซ้อน
+      showToastNotification("success", "แลกคูปองสำเร็จ! ตรวจสอบที่ 'คูปองของฉัน'");
+
     } catch (error) {
       console.error("Error claiming coupon: ", error);
-      alert("เกิดข้อผิดพลาดในการแลกคูปอง กรุณาลองใหม่อีกครั้ง");
+      setShowConfirmPopup(false);
+      showToastNotification("warning", "เกิดข้อผิดพลาดทางเทคนิค กรุณาลองใหม่อีกครั้ง");
     }
   };
 
@@ -155,16 +168,23 @@ export default function CouponPage() {
           new Date(b.expiry_date).getTime()
         );
       }
-      if (sortBy === "distance") {
-        const locA = locations.find((l) => l.id === a.location_id);
-        const locB = locations.find((l) => l.id === b.location_id);
-        return (locA?.distanceKm || 9999) - (locB?.distanceKm || 9999);
-      }
       return 0;
     });
 
   return (
     <div className="page">
+      
+      {/* 🔔 [NEW TOAST NOTIFICATION BLOCK] แท่งแจ้งเตือนลอยลงมาจากขอบจอด้านบน */}
+      <div className={`topToastBar ${toast.show ? "toastShow" : ""}`}>
+        <div className={`toastContent ${toast.type === "success" ? "toastSuccess" : "toastWarning"}`}>
+          <Icon 
+            icon={toast.type === "success" ? "ep:success-filled" : "ph:warning-circle-fill"} 
+            width="22" 
+          />
+          <span className="toastText">{toast.message}</span>
+        </div>
+      </div>
+
       {/* HEADER */}
       <div className="header">
         <button onClick={() => router.push("/")} className="backBtn">
@@ -210,7 +230,7 @@ export default function CouponPage() {
 
       {/* LIST */}
       <div className="list">
-        {validCoupons.slice(0, 5).map((c) => {
+        {validCoupons.map((c) => {
           const location = locations.find((l) => l.id === c.location_id);
           if (!location) return null;
 
@@ -233,7 +253,7 @@ export default function CouponPage() {
                     className="pointBtn"
                     onClick={(e) => {
                       e.stopPropagation();
-                      triggerClaimVerify({ ...c, location }); // 🔥 เรียกสวิตช์เช็คพอยท์ก่อนเปิดป๊อปอัพ
+                      triggerClaimVerify({ ...c, location });
                     }}
                   >
                     <Icon icon="mdi:trophy" width="16" color="white" />
@@ -246,10 +266,10 @@ export default function CouponPage() {
         })}
       </div>
 
-      {/* บานหน้าต่างแสดงข้อมูลรายละเอียดคูปองใบเดิม (Popup 1) */}
+      {/* Popup 1: รายละเอียดคูปอง */}
       {selectedCoupon && !showConfirmPopup && (
-        <div className="popup">
-          <div className="popupCard">
+        <div className="popup" onClick={() => setSelectedCoupon(null)}>
+          <div className="popupCard" onClick={(e) => e.stopPropagation()}>
             <div
               className="closeIcon"
               onClick={() => setSelectedCoupon(null)}
@@ -284,7 +304,7 @@ export default function CouponPage() {
 
             <button
               className="redeemBtn"
-              onClick={() => triggerClaimVerify(selectedCoupon)} // 🔥 เปลี่ยนมากดเปิดหน้าต่างยืนยันชั้นที่ 2
+              onClick={() => triggerClaimVerify(selectedCoupon)}
             >
               <Icon icon="mdi:trophy" width="18" />
               แลก {selectedCoupon.points_required} คะแนน
@@ -293,10 +313,10 @@ export default function CouponPage() {
         </div>
       )}
 
-      {/* 🔥 POPUP ยืนยันการแลกคูปองและหักคะแนนอย่างเป็นทางการ (Popup 2) */}
+      {/* Popup 2: ยืนยันการแลกคูปอง */}
       {showConfirmPopup && selectedCoupon && (
-        <div className="popup confirmPopup">
-          <div className="popupCard confirmCard">
+        <div className="popup confirmPopup" onClick={() => { setShowConfirmPopup(false); setSelectedCoupon(null); }}>
+          <div className="popupCard confirmCard" onClick={(e) => e.stopPropagation()}>
             <div style={{ textAlign: "center", padding: "10px 0" }}>
               <div className="confirmTrophyIcon">
                 <Icon icon="mdi:trophy" />
@@ -315,20 +335,16 @@ export default function CouponPage() {
                 <strong>{selectedCoupon.location?.locationName || selectedCoupon.coupon_name}</strong> ใช่หรือไม่?
               </p>
 
-              {/* ปุ่มควบคุมคำสั่ง ยืนยัน / ยกเลิก */}
               <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%" }}>
-                <button
-                  className="confirmBtn"
-                  onClick={handleConfirmClaim} // สั่งบันทึกหักคะแนนจริง
-                >
+                <button className="confirmBtn" onClick={handleConfirmClaim}>
                   กดยืนยัน
                 </button>
                 
                 <button
                   className="cancelBtn"
                   onClick={() => {
-                    setShowConfirmPopup(false); // ปิดกล่องยืนยัน
-                    setSelectedCoupon(null);    // ล้างค่าเด้งกลับไปหน้าจอรายการแรกสุดทันที
+                    setShowConfirmPopup(false);
+                    setSelectedCoupon(null);
                   }}
                 >
                   ยกเลิก
@@ -354,6 +370,52 @@ export default function CouponPage() {
           margin: 0;
           max-width: 100%;
           border-radius: 0;
+        }
+
+        /* ── 🔔 [NEW CSS] ส่วนจัดการเอฟเฟกต์สไลด์เด้งแจ้งเตือนด้านบนจอ (Toast Top) ── */
+        .topToastBar {
+          position: fixed;
+          top: -100px;
+          left: 0;
+          width: 100%;
+          display: flex;
+          justify-content: center;
+          padding: 0 20px;
+          z-index: 100000;
+          transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .toastShow {
+          transform: translateY(120px); /* ดันลงมาจากด้านบนเมื่อเปิดใช้งาน */
+        }
+
+        .toastContent {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 14px 20px;
+          border-radius: 16px;
+          box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+          width: 100%;
+          max-width: 350px;
+        }
+
+        .toastSuccess {
+          background: #E6F4EA;
+          color: #137333;
+          border: 1px solid #A3E2B1;
+        }
+
+        .toastWarning {
+          background: #FEF7E0;
+          color: #B06000;
+          border: 1px solid #FADF9C;
+        }
+
+        .toastText {
+          font-size: 14px;
+          font-weight: 700;
+          line-height: 1.4;
         }
 
         .header {
@@ -432,7 +494,7 @@ export default function CouponPage() {
         }
 
         .list { display: flex; flex-direction: column; gap: 16px; }
-        .card { position: relative; overflow: hidden; cursor: pointer; }
+        .card { position: relative; overflow: hidden; cursor: pointer; border-radius: 14px; }
         .card img { width: 100%; height: 170px; object-fit: cover; }
 
         .overlay {
@@ -484,23 +546,29 @@ export default function CouponPage() {
           justify-content: center;
           align-items: center;
           backdrop-filter: blur(6px);
-          z-index: 100;
+          z-index: 10000;
         }
 
         .popupCard {
           position: relative;
           background: white;
           padding: 22px;
-          border-radius: 20px;
+          border-radius: 24px;
           width: 85%;
           max-width: 340px;
           box-shadow: 0 12px 40px rgba(0,0,0,0.25);
+          animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        @keyframes slideUp {
+          from { transform: translateY(15px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
         }
 
         .closeIcon {
           position: absolute;
-          top: 12px;
-          right: 14px;
+          top: 14px;
+          right: 16px;
           font-size: 18px;
           cursor: pointer;
           color: #999;
@@ -525,7 +593,8 @@ export default function CouponPage() {
         .expiry { font-size: 13px; font-weight: 500; }
 
         .redeemBtn {
-          background: #facc15;
+          background: #6b4729;
+          color: white;
           border: none;
           padding: 12px;
           width: 100%;
@@ -562,7 +631,6 @@ export default function CouponPage() {
           color: white;
         }
 
-        /* ── 🔥 สไตล์ CSS เพิ่มเติมเฉพาะของกล่องป๊อปอัพยืนยันอันใหม่ ── */
         .confirmTrophyIcon {
           width: 60px;
           height: 60px;
@@ -586,11 +654,6 @@ export default function CouponPage() {
           font-size: 15px;
           cursor: pointer;
           width: 100%;
-          transition: background 0.2s;
-        }
-
-        .confirmBtn:hover {
-          background: #53361e;
         }
 
         .cancelBtn {
@@ -603,11 +666,6 @@ export default function CouponPage() {
           font-size: 15px;
           cursor: pointer;
           width: 100%;
-          transition: background 0.2s;
-        }
-
-        .cancelBtn:hover {
-          background: #e5e7eb;
         }
 
         @media(min-width: 1024px) {

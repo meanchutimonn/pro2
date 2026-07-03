@@ -21,9 +21,12 @@ export default function MyCouponPage() {
   const [locations, setLocations] = useState<any[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedItem, setSelectedItem] = useState<any>(null); // สำหรับคุม Popup
+  const [selectedItem, setSelectedItem] = useState<any>(null); // สำหรับคุม Popup รายละเอียด
   const router = useRouter();
   const [sortBy, setSortBy] = useState("default");
+
+  // 🔔 [NEW] State สำหรับคุมการแสดงผล Custom Success Popup โชว์รหัสคูปองแทน alert()
+  const [successCode, setSuccessCode] = useState<string | null>(null);
 
 
   useEffect(() => {
@@ -76,29 +79,41 @@ export default function MyCouponPage() {
   const handleUseCoupon = async (item: any) => {
     if (!userId) return;
 
-    const code = generateCode();
+    try {
+      const code = generateCode();
 
-    await updateDoc(doc(db, "user_coupons", item.myCouponId), {
-      used: true,
-      code: code,
-      used_at: serverTimestamp()
-    });
+      // 1. อัปเดตข้อมูลสถานะคูปองบน Firestore
+      await updateDoc(doc(db, "user_coupons", item.myCouponId), {
+        used: true,
+        code: code,
+        used_at: serverTimestamp()
+      });
 
-    await addDoc(collection(db, "notifications"), {
-      userId: userId,
-      title: "ใช้คูปองสำเร็จ ✅",
-      body: `คุณใช้คูปอง ${item.coupon_name || "คูปอง"} ที่ ${item.location?.locationName || "ร้านค้า"} เรียบร้อยแล้ว`,
-      couponId: item.id,
-      couponName: item.coupon_name || "",
-      placeName: item.location?.locationName || "",
-      type: "coupon_used",
-      read: false,
-      createdAt: serverTimestamp()
-    });
+      // 2. ส่งประวัติการใช้งานลงคอลเลกชันแจ้งเตือน
+      await addDoc(collection(db, "notifications"), {
+        userId: userId,
+        title: "ใช้คูปองสำเร็จ ✅",
+        body: `คุณใช้คูปอง ${item.coupon_name || "คูปอง"} ที่ ${item.location?.locationName || "ร้านค้า"} เรียบร้อยแล้ว`,
+        couponId: item.id,
+        couponName: item.coupon_name || "",
+        placeName: item.location?.locationName || "",
+        type: "coupon_used",
+        read: false,
+        createdAt: serverTimestamp()
+      });
 
-    alert("รหัสของคุณคือ: " + code);
-    setSelectedItem(null);
-    window.location.reload();
+      // 3. อัปเดตข้อมูล UI ทันทีโดยไม่ต้องบังคับรีโหลดหน้าเว็บด้วย window.location.reload()
+      setMyCoupons((prev) =>
+        prev.map((mc) => (mc.id === item.myCouponId ? { ...mc, used: true, code: code } : mc))
+      );
+
+      // 4. บันทึกโค้ดลง State เพื่อนำไปเปิด Custom ป๊อปอัพสีน้ำตาลสุดสวย และสั่งปิดป๊อปอัพรายละเอียดเดิม
+      setSuccessCode(code);
+      setSelectedItem(null);
+
+    } catch (error) {
+      console.error("Error using coupon:", error);
+    }
   };
 
   const filteredCoupons = myCoupons
@@ -182,7 +197,9 @@ export default function MyCouponPage() {
                 {isExpired ? (
                   <div className="applyBtn" style={{ background: "gray" }} onClick={(e) => {
                     e.stopPropagation();
-                    deleteDoc(doc(db, "user_coupons", mc.id)).then(() => window.location.reload());
+                    deleteDoc(doc(db, "user_coupons", mc.id)).then(() => {
+                      setMyCoupons((prev) => prev.filter((item) => item.id !== mc.id));
+                    });
                   }}>ลบ</div>
                 ) : (
                   <div className="applyBtn">รายละเอียด</div>
@@ -219,6 +236,32 @@ export default function MyCouponPage() {
 
             <button className="confirmUseBtn" onClick={() => handleUseCoupon(selectedItem)}>
               ใช้งานคูปองตอนนี้
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 🔔 [NEW CUSTOM POPUP] ป๊อปอัพสีน้ำตาลสไตล์สวยมน แสดงรหัสคูปองแทน localhost Alert ของเดิม */}
+      {successCode && (
+        <div className="popupOverlay" onClick={() => setSuccessCode(null)}>
+          <div className="customAlertCard" onClick={(e) => e.stopPropagation()}>
+            <div className="alertCloseBtn" onClick={() => setSuccessCode(null)}>✕</div>
+            
+            <div className="alertIconWrapper">
+              <Icon icon="ep:success-filled" width="54" color="#10B981" />
+            </div>
+
+            <h3 className="alertTitleText">เปิดใช้งานคูปองสำเร็จ!</h3>
+            
+            <p className="alertDescriptionText">กรุณานำรหัสคูปองนี้ไปแสดงกับเจ้าหน้าที่ร้านค้า</p>
+            
+            <div className="codeContainer">
+              <span className="codeLabel">รหัสของคุณคือ</span>
+              <span className="codeValueText">{successCode}</span>
+            </div>
+
+            <button className="alertConfirmBtn" onClick={() => setSuccessCode(null)}>
+              ตกลง
             </button>
           </div>
         </div>
@@ -266,7 +309,7 @@ export default function MyCouponPage() {
           color: black;
           border-bottom: 2px solid black;
           display: inline-block;
-        }
+        }ปหป
         .header::after {
           content: "";
           position: absolute;
@@ -333,8 +376,8 @@ export default function MyCouponPage() {
         }
 
         /* Popup Styles */
-        .popupOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(4px); }
-        .popupCard { background: white; width: 90%; max-width: 350px; border-radius: 20px; padding: 24px; position: relative; animation: slideUp 0.3s ease-out; }
+        .popupOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 10000; backdrop-filter: blur(4px); }
+        .popupCard { background: white; width: 90%; max-width: 350px; border-radius: 24px; padding: 24px; position: relative; animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1); }
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         .closeBtn { position: absolute; top: 15px; right: 15px; font-size: 20px; color: #999; cursor: pointer; }
         .popupShopName { font-size: 20px; font-weight: 800; margin-bottom: 4px; color: #333; }
@@ -346,6 +389,91 @@ export default function MyCouponPage() {
         .popupExpiry { font-size: 14px; font-weight: 600; color: #333; }
         .confirmUseBtn { background: #facc15; color: white; border: none; width: 100%; padding: 14px; border-radius: 12px; font-weight: 800; font-size: 16px; margin-top: 10px; cursor: pointer; transition: 0.2s; }
         .confirmUseBtn:active { transform: scale(0.97); }
+
+        /* ── 🔔 สไตล์โมดอลสำหรับแสดงรหัสสำเร็จรูปสไตล์มินิมอลสีน้ำตาลหลักของแอป ── */
+        .customAlertCard {
+          background: white;
+          width: 85%;
+          max-width: 330px;
+          border-radius: 28px;
+          padding: 30px 22px 22px 22px;
+          text-align: center;
+          box-shadow: 0 12px 35px rgba(0,0,0,0.2);
+          position: relative;
+          animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        
+        .alertCloseBtn {
+          position: absolute;
+          top: 15px;
+          right: 17px;
+          font-size: 18px;
+          color: #bbb;
+          cursor: pointer;
+        }
+
+        .alertIconWrapper {
+          margin-bottom: 12px;
+          display: flex;
+          justify-content: center;
+          align-items: center;
+        }
+
+        .alertTitleText {
+          font-size: 18px;
+          font-weight: 800;
+          color: #333;
+          margin: 4px 0;
+        }
+
+        .alertDescriptionText {
+          font-size: 13px;
+          color: #777;
+          margin-bottom: 16px;
+        }
+
+        .codeContainer {
+          background: #fdfbf7;
+          border: 1.5px dashed #6b4729;
+          border-radius: 16px;
+          padding: 14px;
+          margin-bottom: 22px;
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .codeLabel {
+          font-size: 12px;
+          color: #8a6d55;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .codeValueText {
+          font-size: 24px;
+          font-weight: 800;
+          color: #6b4729; /* สีน้ำตาลแบรนด์หลัก */
+          letter-spacing: 2px;
+        }
+
+        .alertConfirmBtn {
+          background: #6b4729;
+          color: white;
+          border: none;
+          width: 100%;
+          padding: 13px;
+          border-radius: 16px;
+          font-weight: 700;
+          font-size: 15px;
+          cursor: pointer;
+          transition: background 0.2s;
+        }
+
+        .alertConfirmBtn:active {
+          transform: scale(0.97);
+        }
 
         .emptyText {
           display: flex;
@@ -366,25 +494,25 @@ export default function MyCouponPage() {
         }
 
         .sortBar{
-  display:flex;
-  gap:10px;
-  margin-bottom:18px;
-  overflow:auto;
-}
+          display:flex;
+          gap:10px;
+          margin-bottom:18px;
+          overflow:auto;
+        }
 
-.sortBar button{
-  border:none;
-  background:#eee;
-  padding:8px 14px;
-  border-radius:20px;
-  font-weight:600;
-  white-space:nowrap;
-}
+        .sortBar button{
+          border:none;
+          background:#eee;
+          padding:8px 14px;
+          border-radius:20px;
+          font-weight:600;
+          white-space:nowrap;
+        }
 
-.activeSort{
-  background:#6b4729 !important;
-  color:white;
-}
+        .activeSort{
+          background:#6b4729 !important;
+          color:white;
+        }
       `}</style>
     </div>
   );

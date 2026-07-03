@@ -2,7 +2,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Icon } from "@iconify/react";
 import TripMapPage from "./TripMapPage";
-// 🛠️ ตรวจสอบให้มั่นใจว่าดึง useRouter และ useSearchParams มาใช้งาน
 import { useRouter, useSearchParams } from "next/navigation";
 import { db } from "@/lib/firebase";
 import {
@@ -26,9 +25,8 @@ const W = {
   pink: "#FF7A7A",
 };
 
-// ── 1. เพิ่มฟังก์ชันคำนวณระยะทาง (Haversine Formula) ──────────────────────────────
 function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number) {
-  const R = 6371; // รัศมีโลก (กม.)
+  const R = 6371;
   const dLat = (lat2 - lat1) * (Math.PI / 180);
   const dLon = (lon2 - lon1) * (Math.PI / 180);
   const a =
@@ -39,21 +37,6 @@ function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: numbe
   return R * c;
 }
 
-// ── Responsive hook ────────────────────────────────────────────────────────────
-function useIsDesktop() {
-  const [isDesktop, setIsDesktop] = useState(false);
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      setIsDesktop(window.innerWidth >= 768);
-      const handler = () => setIsDesktop(window.innerWidth >= 768);
-      window.addEventListener("resize", handler);
-      return () => window.removeEventListener("resize", handler);
-    }
-  }, []);
-  return isDesktop;
-}
-
-// ── Types ──────────────────────────────────────────────────────────────────────
 export interface TripStop {
   id: number;
   name: string;
@@ -123,19 +106,9 @@ function RouteIllustration({ onClick }: { onClick?: () => void }) {
         height="110"
         style={{ color: "#614124", opacity: 0.95, filter: "drop-shadow(0px 2px 0px rgba(0,0,0,0.1))" }}
       />
-
       <div style={buttonStyle}>
         <Icon icon="lucide:map" width="20" height="20" color="#614124" />
         YOUR JOURNEY
-      </div>
-
-      <div style={{ position: "absolute", inset: 0, opacity: 0.1, pointerEvents: "none" }}>
-        <svg width="100%" height="100%">
-          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
-            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="black" strokeWidth="1" />
-          </pattern>
-          <rect width="100%" height="100%" fill="url(#grid)" />
-        </svg>
       </div>
     </div>
   );
@@ -149,6 +122,7 @@ function StopRow({
   userLoc,
   cafes,
   reviewStat,
+  onOpenPopup, // 🔔 รับฟังก์ชันเปิดคุมป๊อปอัพมาทำงานแทน window.confirm
 }: {
   stop: TripStop;
   trip: TripDetail;
@@ -156,20 +130,12 @@ function StopRow({
   getCafeId: (name: string) => string | undefined;
   userLoc: { lat: number; lng: number } | null;
   cafes: any[];
-  reviewStat?: {
-    avg: number;
-    count: number;
-  };
+  reviewStat?: { avg: number; count: number };
+  onOpenPopup: (stopName: string, getCafeIdFn: any) => void;
 }) {
-  const router = useRouter();
   const cafeData = cafes.find(c => c.locationName === stop.name);
 
-  const displayRating =
-    cafeData?.rating ||
-    cafeData?.averageRating ||
-    stop.rating ||
-    0;
-
+  const displayRating = cafeData?.rating || cafeData?.averageRating || stop.rating || 0;
   let displayDistance = stop.distance || "0.0 km"; 
 
   if (userLoc && cafeData?.latitude && cafeData?.longitude) {
@@ -179,63 +145,7 @@ function StopRow({
 
   return (
     <div
-      onClick={async () => {
-        const cafeId = getCafeId(stop.name);
-        if (!cafeId) return;
-
-        const auth = getAuth();
-        const user = auth.currentUser;
-
-        if (!user) {
-          router.push(`/cafe/${cafeId}`);
-          return;
-        }
-
-        const missionRef = doc(db, "userMissions", user.uid);
-        const missionSnap = await getDoc(missionRef);
-        const missionData = missionSnap.exists() ? missionSnap.data() : null;
-
-        const hasActiveMission =
-          missionData &&
-          missionData.status === "active" &&
-          String(missionData.tripId) !== String(trip.id);
-
-        if (hasActiveMission) {
-          const missionTitle = missionData.tripTitle || "ภารกิจปัจจุบัน";
-          const confirmed = window.confirm(
-            `⚠️ คุณมีภารกิจ "${missionTitle}" ค้างอยู่\n\nกรุณาทำให้เสร็จก่อนเริ่มภารกิจใหม่\n\nกด OK เพื่อไปดูภารกิจที่ค้างอยู่`
-          );
-          if (confirmed) {
-            router.push("/mission");
-          }
-          return;
-        }
-
-        const isNewMission =
-          !missionData || String(missionData.tripId) !== String(trip.id);
-
-        if (isNewMission) {
-          const confirmed = window.confirm(
-            `🗺️ เริ่มภารกิจ "${trip.title}" ใช่ไหม?\n\nระบบจะเริ่มนับการเช็คอินร้านค้าในภารกิจนี้ให้คุณ`
-          );
-          if (!confirmed) return;
-
-          await setDoc(missionRef, {
-            tripId: trip.id,
-            tripTitle: trip.title,
-            tripData: trip,
-            status: "active",
-            startedAt: serverTimestamp(),
-            completedAt: null,
-          });
-        }
-
-        localStorage.setItem("activeMission", JSON.stringify(trip));
-        localStorage.setItem("activeMissionId", String(trip.id));
-        localStorage.setItem("activeMissionCompleted", "false");
-
-        router.push(`/cafe/${cafeId}`);
-      }}
+      onClick={() => onOpenPopup(stop.name, getCafeId)}
       style={{
         display: "flex",
         alignItems: "center",
@@ -251,89 +161,19 @@ function StopRow({
         flexShrink: 0, boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
       }} />
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", textAlign: "left", alignItems: "flex-start" }}>
-        <div
-          style={{
-            flex: 1,
-            minWidth: 0,
-            display: "flex",
-            flexDirection: "column",
-            textAlign: "left",
-            alignItems: "flex-start",
-          }}
-        >
-          <div
-            style={{
-              fontSize: "clamp(14px, 4vw, 16px)",
-              fontWeight: 800,
-              color: W.text,
-              marginBottom: "clamp(2px, 1vw, 4px)",
-              width: "100%",
-              lineHeight: 1.3,
-              wordBreak: "break-word",
-            }}
-          >
-            {stop.name}
-          </div>
-
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              flexWrap: "wrap",          
-              gap: "clamp(3px, 1.5vw, 5px)",
-              marginBottom: "clamp(4px, 1.5vw, 6px)",
-              rowGap: 4,
-            }}
-          >
-            <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
-              <span>⭐</span> <span style={{
-                fontSize: '13px', fontWeight: '800', gap: 8,
-                margin: "4px 0"
-              }}>
-                {(reviewStat?.avg || 0).toFixed(1)}
-              </span>
-            </div>
-
-            <span
-              style={{
-                color: "#aaa",
-                fontSize: "clamp(11px, 3vw, 13px)",
-                margin: '4px 0',
-                flexShrink: 0,
-                lineHeight: 1,
-              }}
-            >
-              |
-            </span>
-
-            <span
-              style={{
-                fontSize: "clamp(13px, 3vw, 13px)",
-                color: W.text,
-                whiteSpace: "nowrap",
-                flexShrink: 0,
-              }}
-            >
-              {displayDistance}
-            </span>
-          </div>
-
-          <div
-            style={{
-              fontSize: "clamp(11px, 3vw, 12px)",
-              color: W.muted,
-              lineHeight: 1.5,
-              overflow: "hidden",
-              display: "-webkit-box",
-              WebkitLineClamp: 2,
-              WebkitBoxOrient: "vertical" as const,
-              wordBreak: "break-word",
-            }}
-          >
-            {stop.description}
-          </div>
+        <div style={{ fontSize: "clamp(14px, 4vw, 16px)", fontWeight: 800, color: W.text, marginBottom: "clamp(2px, 1vw, 4px)", width: "100%", lineHeight: 1.3, wordBreak: "break-word" }}>
+          {stop.name}
         </div>
-
+        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: "clamp(3px, 1.5vw, 5px)", marginBottom: "clamp(4px, 1.5vw, 6px)", rowGap: 4 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 2, flexShrink: 0 }}>
+            <span>⭐</span> <span style={{ fontSize: '13px', fontWeight: '800', margin: "4px 0" }}>{(reviewStat?.avg || 0).toFixed(1)}</span>
+          </div>
+          <span style={{ color: "#aaa", fontSize: "clamp(11px, 3vw, 13px)", margin: '4px 0', flexShrink: 0, lineHeight: 1 }}>|</span>
+          <span style={{ fontSize: "clamp(13px, 3vw, 13px)", color: W.text, whiteSpace: "nowrap", flexShrink: 0 }}>{displayDistance}</span>
+        </div>
+        <div style={{ fontSize: "clamp(11px, 3vw, 12px)", color: W.muted, lineHeight: 1.5, overflow: "hidden", display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", wordBreak: "break-word" }}>
+          {stop.description}
+        </div>
       </div>
       <div style={{
         background: isChecked ? W.green : W.pink,
@@ -341,10 +181,7 @@ function StopRow({
         display: "flex", alignItems: "center", justifyContent: "center",
         flexShrink: 0, boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
       }}>
-        <Icon
-          icon={isChecked ? "tdesign:map-unlocked-filled" : "tdesign:map-locked-filled"}
-          width="26" height="26" style={{ color: "#fff" }}
-        />
+        <Icon icon={isChecked ? "tdesign:map-unlocked-filled" : "tdesign:map-locked-filled"} width="26" height="26" style={{ color: "#fff" }} />
       </div>
     </div>
   );
@@ -352,8 +189,6 @@ function StopRow({
 
 export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: TripDetailPageProps) {
   const trip = initialTrip;
-  
-  // 🛠️ จุดแก้ไขสำคัญ: เรียกใช้ router และ searchParams สำหรับจัดการปุ่มย้อนกลับแบบข้ามหน้า
   const router = useRouter();
   const searchParams = useSearchParams();
   const fromPage = searchParams.get("from");
@@ -362,10 +197,12 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
   const [cafes, setCafes] = useState<any[]>([]);
   const [historyIds, setHistoryIds] = useState<Set<string>>(new Set());
   const [showMap, setShowMap] = useState(false);
-  const [reviewStats, setReviewStats] = useState<Record<string, {
-    avg: number;
-    count: number;
-  }>>({});
+  const [reviewStats, setReviewStats] = useState<Record<string, { avg: number; count: number }>>({});
+  const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
+
+  // ── 🔔 [NEW] State สำหรับจัดการ Custom Popup แจ้งเตือนแอปพลิเคชัน ──
+  const [activeMissionPopup, setActiveMissionPopup] = useState<{ isOpen: boolean; title: string }>({ isOpen: false, title: "" });
+  const [startMissionPopup, setStartMissionPopup] = useState<{ isOpen: boolean; cafeId: string }>({ isOpen: false, cafeId: "" });
 
   useEffect(() => {
     const auth = getAuth();
@@ -381,8 +218,6 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
     return () => unsubTab();
   }, []);
 
-  const [userLoc, setUserLoc] = useState<{ lat: number; lng: number } | null>(null);
-
   useEffect(() => {
     const fetchCafes = async () => {
       const snap = await getDocs(collection(db, "locations"));
@@ -393,84 +228,53 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (position) => {
-          setUserLoc({
-            lat: position.coords.latitude,
-            lng: position.coords.longitude,
-          });
+          setUserLoc({ lat: position.coords.latitude, lng: position.coords.longitude });
         },
         (error) => console.error("Error Geolocation:", error),
-        {
-          enableHighAccuracy: true, 
-          timeout: 5000,            
-          maximumAge: 60000         
-        }
+        { enableHighAccuracy: true, timeout: 5000, maximumAge: 60000 }
       );
     }
   }, []);
 
   useEffect(() => {
     const auth = getAuth();
-
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user) return;
-
       const missionSnap = await getDoc(doc(db, "userMissions", user.uid));
-
       if (!missionSnap.exists()) {
         setHistoryIds(new Set());
         return;
       }
-
       const missionData = missionSnap.data();
-
-      if (
-        missionData.status !== "active" &&
-        missionData.status !== "completed"
-      ) {
+      if (missionData.status !== "active" && missionData.status !== "completed") {
         setHistoryIds(new Set());
         return;
       }
-
       if (String(missionData.tripId) !== String(trip.id)) {
         setHistoryIds(new Set());
         return;
       }
-
       const checkedIds = missionData.checkedLocationIds || [];
       setHistoryIds(new Set(checkedIds.map((id: any) => String(id).trim())));
     });
-
     return () => unsubscribe();
   }, [trip.id]);
 
   useEffect(() => {
     const loadReviewStats = async () => {
       if (cafes.length === 0 || !trip?.stops) return;
-
       const stats: Record<string, { avg: number; count: number }> = {};
-
       await Promise.all(
         trip.stops.map(async (stop) => {
           const cafeData = cafes.find(c => c.locationName === stop.name);
           if (!cafeData?.id) return;
-
           const reviews = await getReviews(cafeData.id);
-
-          const avg =
-            reviews.length > 0
-              ? reviews.reduce((sum: number, r: any) => sum + Number(r.rating || 0), 0) / reviews.length
-              : 0;
-
-          stats[stop.name] = {
-            avg,
-            count: reviews.length,
-          };
+          const avg = reviews.length > 0 ? reviews.reduce((sum: number, r: any) => sum + Number(r.rating || 0), 0) / reviews.length : 0;
+          stats[stop.name] = { avg, count: reviews.length };
         })
       );
-
       setReviewStats(stats);
     };
-
     loadReviewStats();
   }, [cafes, trip]);
 
@@ -479,13 +283,89 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
     return match?.id;
   };
 
-  // 🛠️ ฟังก์ชันย้อนกลับตัวใหม่: สั่งปิด Component ด้วย และพาวาร์ปไปหน้า Mission พร้อมกันเลย
+  // ── 🔔 [NEW FUNCTION] ฟังก์ชันคัดกรองลอจิกความปลอดภัยก่อนเข้าหน้าร้านค้า ──
+  const handleCheckMissionBeforeNavigate = async (stopName: string, getCafeIdFn: any) => {
+    const cafeId = getCafeIdFn(stopName);
+    if (!cafeId) return;
+
+    const auth = getAuth();
+    const user = auth.currentUser;
+
+    if (!user) {
+      router.push(`/cafe/${cafeId}`);
+      return;
+    }
+
+    const missionRef = doc(db, "userMissions", user.uid);
+    const missionSnap = await getDoc(missionRef);
+    const missionData = missionSnap.exists() ? missionSnap.data() : null;
+
+    const hasActiveMission =
+      missionData &&
+      missionData.status === "active" &&
+      String(missionData.tripId) !== String(trip.id);
+
+    // กรณีมีภารกิจอื่นค้างอยู่ -> เปิด Custom Popup แจ้งเตือน
+    if (hasActiveMission) {
+      const missionTitle = missionData.tripTitle || "ภารกิจปัจจุบัน";
+      setActiveMissionPopup({ isOpen: true, title: missionTitle });
+      return;
+    }
+
+    const isNewMission = !missionData || String(missionData.tripId) !== String(trip.id);
+
+    // กรณีเป็นทริปใหม่ที่ยังไม่เคยเริ่มทำ -> เปิด Custom Popup ถามความสมัครใจ
+    if (isNewMission) {
+      setStartMissionPopup({ isOpen: true, cafeId: cafeId });
+      return;
+    }
+
+    // หากเปิดภารกิจนี้ทิ้งไว้อยู่แล้ว ให้ผ่านเข้าหน้าร้านได้ทันที
+    navigateToCafeDirectly(cafeId);
+  };
+
+  // ── ฟังก์ชันกดยืนยันการเริ่มทำภารกิจใหม่จริง ๆ ──
+  const handleConfirmStartNewMission = async () => {
+    const auth = getAuth();
+    const user = auth.currentUser;
+    if (!user) return;
+
+    try {
+      const missionRef = doc(db, "userMissions", user.uid);
+      await setDoc(missionRef, {
+        tripId: trip.id,
+        tripTitle: trip.title,
+        tripData: trip,
+        status: "active",
+        startedAt: serverTimestamp(),
+        completedAt: null,
+      });
+
+      localStorage.setItem("activeMission", JSON.stringify(trip));
+      localStorage.setItem("activeMissionId", String(trip.id));
+      localStorage.setItem("activeMissionCompleted", "false");
+
+      const targetId = startMissionPopup.cafeId;
+      setStartMissionPopup({ isOpen: false, cafeId: "" });
+      router.push(`/cafe/${targetId}`);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const navigateToCafeDirectly = (cafeId: string) => {
+    localStorage.setItem("activeMission", JSON.stringify(trip));
+    localStorage.setItem("activeMissionId", String(trip.id));
+    localStorage.setItem("activeMissionCompleted", "false");
+    router.push(`/cafe/${cafeId}`);
+  };
+
   const handleBackCustom = () => {
     if (fromPage === "mission") {
-      onBack();                 // 1. สั่งปิดหน้าต่างทริปนี้ (เคลียร์ State หน้าหลัก)
-      router.push("/mission");   // 2. ลัดคิวพาวาร์ปเปลี่ยน URL หนีไปที่หน้า Mission ทันที
+      onBack();
+      router.push("/mission");
     } else {
-      onBack();                 // ถ้าเปิดมาจากหน้าแรกปกติ ก็ให้ปิดตัวตาม Flow เดิม
+      onBack();
     }
   };
 
@@ -508,20 +388,12 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
             const missionRef = doc(db, "userMissions", user.uid);
             const missionSnap = await getDoc(missionRef);
 
-            if (
-              missionSnap.exists() &&
-              missionSnap.data().status === "completed"
-            ) {
+            if (missionSnap.exists() && missionSnap.data().status === "completed") {
               alert("คุณรับรางวัลภารกิจนี้ไปแล้ว");
               return;
             }
 
-            await setDoc(
-              missionRef,
-              { status: "completed", completedAt: serverTimestamp() },
-              { merge: true }
-            );
-
+            await setDoc(missionRef, { status: "completed", completedAt: serverTimestamp() }, { merge: true });
             await addDoc(collection(db, "notifications"), {
               userId: user.uid,
               title: "ภารกิจสำเร็จ 🎉",
@@ -538,7 +410,6 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
           localStorage.removeItem("activeMission");
           localStorage.removeItem("activeMissionId");
           localStorage.removeItem("activeMissionCompleted");
-
           alert("🎉 Congratulations! You've claimed your points!");
           setShowMap(false);
         }}
@@ -549,19 +420,30 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
   return (
     <>
       <style jsx global>{`
-      body{
-        background-image:  url('/photo/background.jpg');
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-      }
-    `}</style>
+        body{
+          background-image:  url('/photo/background.jpg');
+          background-size: cover;
+          background-position: center;
+          background-repeat: no-repeat;
+        }
+        
+        /* สไตล์โมดอล Popup คุมโทนสไตล์น้ำตาลแอปพลิเคชัน */
+        .customOverlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; z-index: 99999; backdrop-filter: blur(4px); padding: 16px; }
+        .customAlertCard { background: white; width: 100%; max-width: 340px; border-radius: 24px; padding: 28px 20px; text-align: center; box-shadow: 0 10px 30px rgba(0,0,0,0.15); animation: zoomInEffect 0.25s cubic-bezier(0.34, 1.56, 0.64, 1); }
+        @keyframes zoomInEffect { from { transform: scale(0.9); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+        .popupIconBox { margin-bottom: 12px; display: flex; justify-content: center; }
+        .popupTitle { font-size: 19px; font-weight: 800; color: #333; margin: 6px 0; }
+        .popupDesc { font-size: 14px; color: #666; line-height: 1.5; margin-bottom: 22px; white-space: pre-line; }
+        .popupButtonGroup { display: flex; gap: 10px; }
+        .btnCancel { flex: 1; background: #eee; color: #555; border: none; padding: 12px; border-radius: 14px; font-weight: 700; font-size: 14px; cursor: pointer; }
+        .btnPrimaryConfirm { flex: 1; background: #614124; color: white; border: none; padding: 12px; border-radius: 14px; font-weight: 700; font-size: 14px; cursor: pointer; }
+      `}</style>
 
       <div style={{
         width: "100%", maxWidth: "1100px", minHeight: "100vh", background: "#fff",
         borderRadius: "24px", overflow: "hidden", display: "flex",
         flexDirection: "column", boxShadow: "0 20px 50px rgba(0,0,0,0.25)",
-       backdropFilter: "blur(6px)",
+        backdropFilter: "blur(6px)",
         margin: typeof window !== "undefined" && window.innerWidth >= 768 ? "40px auto" : "0px auto",
       }}>
         <div style={{ flex: 1, display: "flex", flexDirection: "column", background: W.bg }}>
@@ -572,7 +454,6 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
             borderBottom: `1px solid ${W.lightGray}`, display: "flex",
             alignItems: "center", justifyContent: "space-between", padding: "14px 20px",
           }}>
-            {/* 🛠️ เปลี่ยนการทำงานมาใช้ handleBackCustom ที่เราสร้างไว้ */}
             <button onClick={handleBackCustom} style={{
               width: 42, height: 42, borderRadius: "50%", background: W.dark,
               border: "none", display: "flex", alignItems: "center", justifyContent: "center",
@@ -629,6 +510,7 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
                     userLoc={userLoc} 
                     cafes={cafes}     
                     reviewStat={reviewStats[stop.name]}
+                    onOpenPopup={handleCheckMissionBeforeNavigate} // 🔔 ส่งตัวเช็คเข้าหน้าแบบคัสตอมบาร์
                   />
                 ))}
               </div>
@@ -636,6 +518,53 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
           </div>
         </div>
       </div>
+
+      {/* ── 🔔 [POPUP 1] แจ้งเตือนเมื่อมีภารกิจทริปอื่นค้างอยู่ คุมโทนสีส้ม/น้ำตาลแบรนด์ ── */}
+      {activeMissionPopup.isOpen && (
+        <div className="customOverlay" onClick={() => setActiveMissionPopup({ isOpen: false, title: "" })}>
+          <div className="customAlertCard" onClick={(e) => e.stopPropagation()}>
+            <div className="popupIconBox">
+              <Icon icon="solar:danger-triangle-bold-duotone" width="58" color="#EFBB3A" />
+            </div>
+            <h3 className="popupTitle">มีภารกิจค้างอยู่</h3>
+            <p className="popupDesc">
+              คุณกำลังทำภารกิจ "{activeMissionPopup.title}" อยู่ในขณะนี้ 
+              กรุณาทำภารกิจเดิมให้เสร็จสิ้นก่อนเริ่มเส้นทางใหม่ครับ
+            </p>
+            <div className="popupButtonGroup">
+              <button className="btnCancel" onClick={() => setActiveMissionPopup({ isOpen: false, title: "" })}>ปิด</button>
+              <button className="btnPrimaryConfirm" onClick={() => {
+                setActiveMissionPopup({ isOpen: false, title: "" });
+                router.push("/mission");
+              }}>
+                ไปที่ภารกิจค้างอยู่
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── 🔔 [POPUP 2] หน้าต่างยืนยันเข้าร่วมภารกิจใหม่สไตล์ Minimal ── */}
+      {startMissionPopup.isOpen && (
+        <div className="customOverlay" onClick={() => setStartMissionPopup({ isOpen: false, cafeId: "" })}>
+          <div className="customAlertCard" onClick={(e) => e.stopPropagation()}>
+            <div className="popupIconBox">
+              <Icon icon="solar:map-compass-bold-duotone" width="58" color="#614124" />
+            </div>
+            <h3 className="popupTitle">เริ่มภารกิจใหม่?</h3>
+            <p className="popupDesc">
+              ต้องการเริ่มภารกิจเส้นทาง "{trip.title}" ใช่หรือไม่? 
+              ระบบจะเริ่มบันทึกและนับจำนวนการเช็คอินบนเส้นทางนี้ให้คุณทันที
+            </p>
+            <div className="popupButtonGroup">
+              <button className="btnCancel" onClick={() => setStartMissionPopup({ isOpen: false, cafeId: "" })}>ยกเลิก</button>
+              <button className="btnPrimaryConfirm" onClick={handleConfirmStartNewMission}>
+                เริ่มภารกิจเลย
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
