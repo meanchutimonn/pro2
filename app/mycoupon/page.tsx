@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react"; // 1. นำเข้า useRef เพิ่มเติม
 import { db } from "@/lib/firebase";
 import { updateDoc, deleteDoc, serverTimestamp, addDoc } from "firebase/firestore";
 import {
@@ -14,6 +14,7 @@ import {
 import { useRouter } from "next/navigation";
 import { Icon } from "@iconify/react";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
+import html2canvas from "html2canvas"; // 2. นำเข้า html2canvas สำหรับจับภาพหน้าจอ
 
 export default function MyCouponPage() {
   const [myCoupons, setMyCoupons] = useState<any[]>([]);
@@ -21,13 +22,15 @@ export default function MyCouponPage() {
   const [locations, setLocations] = useState<any[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedItem, setSelectedItem] = useState<any>(null); // สำหรับคุม Popup รายละเอียด
+  const [selectedItem, setSelectedItem] = useState<any>(null); 
   const router = useRouter();
   const [sortBy, setSortBy] = useState("default");
 
-  // 🔔 [NEW] State สำหรับคุมการแสดงผล Custom Success Popup โชว์รหัสคูปองแทน alert()
   const [successCode, setSuccessCode] = useState<string | null>(null);
+  const [activeUsedCoupon, setActiveUsedCoupon] = useState<any>(null); // เก็บข้อมูลคูปองที่เพิ่งกดใช้ เพื่อนำมาวาดบนการ์ดใบเสร็จสำเร็จรูป
 
+  // 3. สร้าง cardRef สำหรับชี้เป้ากล่องการ์ดที่จะเซฟเป็นรูปภาพ
+  const cardRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const auth = getAuth();
@@ -82,14 +85,12 @@ export default function MyCouponPage() {
     try {
       const code = generateCode();
 
-      // 1. อัปเดตข้อมูลสถานะคูปองบน Firestore
       await updateDoc(doc(db, "user_coupons", item.myCouponId), {
         used: true,
         code: code,
         used_at: serverTimestamp()
       });
 
-      // 2. ส่งประวัติการใช้งานลงคอลเลกชันแจ้งเตือน
       await addDoc(collection(db, "notifications"), {
         userId: userId,
         title: "ใช้คูปองสำเร็จ ✅",
@@ -102,17 +103,39 @@ export default function MyCouponPage() {
         createdAt: serverTimestamp()
       });
 
-      // 3. อัปเดตข้อมูล UI ทันทีโดยไม่ต้องบังคับรีโหลดหน้าเว็บด้วย window.location.reload()
       setMyCoupons((prev) =>
         prev.map((mc) => (mc.id === item.myCouponId ? { ...mc, used: true, code: code } : mc))
       );
 
-      // 4. บันทึกโค้ดลง State เพื่อนำไปเปิด Custom ป๊อปอัพสีน้ำตาลสุดสวย และสั่งปิดป๊อปอัพรายละเอียดเดิม
+      // จัดเก็บ State คูปองชิ้นปัจจุบันที่กำลังเปิดทำงานอยู่เอาไว้ใช้งานวาดลงภาพ
+      setActiveUsedCoupon(item);
       setSuccessCode(code);
       setSelectedItem(null);
 
     } catch (error) {
       console.error("Error using coupon:", error);
+    }
+  };
+
+  // 4. ฟังก์ชันสำหรับการประมวลผลจับภาพ HTML ออกมาเป็นไฟล์ PNG ดาวน์โหลดลงเครื่อง
+  const saveImage = async () => {
+    if (!cardRef.current) return;
+
+    try {
+      // ใช้ html2canvas ทำการดึง Element ภายใน Ref ออกมาแปลงเป็น Canvas
+      const canvas = await html2canvas(cardRef.current, {
+        scale: 3, // เพิ่มความละเอียดภาพขึ้น 3 เท่าให้คมชัด
+        backgroundColor: "#ffffff", // บังคับให้พื้นหลังที่อยู่นอกกล่องเป็นสีขาวสะอาดตา
+        useCORS: true, // เปิดรับภาพข้าม Domain ป้องกันปัญหารูปภาพร้านจาก Firebase หายในภาพเซฟ
+      });
+
+      const image = canvas.toDataURL("image/png");
+      const link = document.createElement("a");
+      link.download = `coupon-${activeUsedCoupon?.location?.locationName || "roythang"}.png`;
+      link.href = image;
+      link.click();
+    } catch (error) {
+      console.error("Error saving image:", error);
     }
   };
 
@@ -136,6 +159,11 @@ export default function MyCouponPage() {
 
       return 0;
     });
+
+  const handleCloseSuccessPopup = () => {
+    setSuccessCode(null);
+    setActiveUsedCoupon(null);
+  };
 
   return (
     <div className="page">
@@ -241,28 +269,77 @@ export default function MyCouponPage() {
         </div>
       )}
 
-      {/* 🔔 [NEW CUSTOM POPUP] ป๊อปอัพสีน้ำตาลสไตล์สวยมน แสดงรหัสคูปองแทน localhost Alert ของเดิม */}
-      {successCode && (
-        <div className="popupOverlay" onClick={() => setSuccessCode(null)}>
-          <div className="customAlertCard" onClick={(e) => e.stopPropagation()}>
-            <div className="alertCloseBtn" onClick={() => setSuccessCode(null)}>✕</div>
+      {/* 🔔 5. ป๊อปอัพยืนยันพร้อมระบบบัตรคูปองและปุ่มบันทึกภาพหน้าจอ html2canvas */}
+      {successCode && activeUsedCoupon && (
+        <div className="popupOverlay" onClick={handleCloseSuccessPopup}>
+          <div className="customAlertCard" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '360px', padding: '24px 16px' }}>
+            <div className="alertCloseBtn" onClick={handleCloseSuccessPopup}>✕</div>
             
-            <div className="alertIconWrapper">
-              <Icon icon="ep:success-filled" width="54" color="#10B981" />
+            {/* 📦 ส่วนที่ถูกครอบด้วย Ref เพื่อจับภาพหน้าจอเฉพาะชิ้นการ์ดนี้ */}
+            <div ref={cardRef} className="couponSaveCard" style={{
+              background: '#ffffff',
+              borderRadius: '20px',
+              padding: '24px 20px',
+              border: '1px solid #e5e7eb',
+              boxShadow: '0 4px 15px rgba(0,0,0,0.05)',
+              textAlign: 'center',
+              width: '100%',
+              boxSizing: 'border-box'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '12px' }}>
+                <Icon icon="ep:success-filled" width="48" color="#4F772D" />
+              </div>
+
+              <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#333', margin: '0 0 6px 0' }}>
+                {activeUsedCoupon.location?.locationName}
+              </h2>
+
+              <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#666', margin: '0 0 16px 0' }}>
+                {activeUsedCoupon.coupon_name || "คูปองส่วนลด"}
+              </h3>
+
+              <div className="code" style={{
+                background: '#fdfbf7',
+                border: '2px dashed #6b4729',
+                borderRadius: '14px',
+                padding: '14px 10px',
+                margin: '14px 0',
+              }}>
+                <span style={{ display: 'block', fontSize: '11px', color: '#8a6d55', fontWeight: 700, marginBottom: '4px', letterSpacing: '0.5px' }}>
+                  รหัสคูปองสำหรับแสดงหน้าร้าน
+                </span>
+                <span style={{ fontSize: '26px', fontWeight: 900, color: '#6b4729', letterSpacing: '2px' }}>
+                  {successCode}
+                </span>
+              </div>
+
+              <p style={{ fontSize: '15px', fontWeight: 800, color: '#4F772D', margin: '8px 0 4px 0' }}>
+                💥 ลด {activeUsedCoupon.discount_value} บาท
+              </p>
+
+              <p style={{ fontSize: '12px', color: '#7a7a7a', margin: 0 }}>
+                📅 หมดอายุ: {activeUsedCoupon.expiry_date}
+              </p>
             </div>
 
-            <h3 className="alertTitleText">เปิดใช้งานคูปองสำเร็จ!</h3>
-            
-            <p className="alertDescriptionText">กรุณานำรหัสคูปองนี้ไปแสดงกับเจ้าหน้าที่ร้านค้า</p>
-            
-            <div className="codeContainer">
-              <span className="codeLabel">รหัสของคุณคือ</span>
-              <span className="codeValueText">{successCode}</span>
+            {/* 🎛️ ปุ่มคำสั่งคอนโทรล (อยู่นอกกล่องการ์ด Ref เพื่อไม่ให้ตัวปุ่มติดเข้าไปในไฟล์ภาพรูปถ่าย) */}
+            <div style={{ marginTop: '20px', display: 'flex', flexDirection: 'column', gap: '10px', width: '100%' }}>
+              <button onClick={saveImage} style={{
+                background: '#4F772D', // ใช้ธีมสีเขียวดูโดดเด่นน่ากดบันทึกรูป
+                color: 'white', border: 'none', width: '100%', padding: '12px',
+                borderRadius: '14px', fontWeight: 700, fontSize: '14px',
+                cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                boxShadow: '0 4px 12px rgba(79,119,45,0.2)'
+              }}>
+                <Icon icon="lucide:download" width="18" />
+                💾 บันทึกรูปภาพคูปอง
+              </button>
+
+              <button className="alertConfirmBtn" onClick={handleCloseSuccessPopup} style={{ margin: 0 }}>
+                ปิดหน้าต่าง
+              </button>
             </div>
 
-            <button className="alertConfirmBtn" onClick={() => setSuccessCode(null)}>
-              ตกลง
-            </button>
           </div>
         </div>
       )}
@@ -309,7 +386,7 @@ export default function MyCouponPage() {
           color: black;
           border-bottom: 2px solid black;
           display: inline-block;
-        }ปหป
+        }
         .header::after {
           content: "";
           position: absolute;
@@ -390,7 +467,7 @@ export default function MyCouponPage() {
         .confirmUseBtn { background: #facc15; color: white; border: none; width: 100%; padding: 14px; border-radius: 12px; font-weight: 800; font-size: 16px; margin-top: 10px; cursor: pointer; transition: 0.2s; }
         .confirmUseBtn:active { transform: scale(0.97); }
 
-        /* ── 🔔 สไตล์โมดอลสำหรับแสดงรหัสสำเร็จรูปสไตล์มินิมอลสีน้ำตาลหลักของแอป ── */
+        /* Custom Alert */
         .customAlertCard {
           background: white;
           width: 85%;
@@ -410,52 +487,6 @@ export default function MyCouponPage() {
           font-size: 18px;
           color: #bbb;
           cursor: pointer;
-        }
-
-        .alertIconWrapper {
-          margin-bottom: 12px;
-          display: flex;
-          justify-content: center;
-          align-items: center;
-        }
-
-        .alertTitleText {
-          font-size: 18px;
-          font-weight: 800;
-          color: #333;
-          margin: 4px 0;
-        }
-
-        .alertDescriptionText {
-          font-size: 13px;
-          color: #777;
-          margin-bottom: 16px;
-        }
-
-        .codeContainer {
-          background: #fdfbf7;
-          border: 1.5px dashed #6b4729;
-          border-radius: 16px;
-          padding: 14px;
-          margin-bottom: 22px;
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-
-        .codeLabel {
-          font-size: 12px;
-          color: #8a6d55;
-          font-weight: 600;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-        }
-
-        .codeValueText {
-          font-size: 24px;
-          font-weight: 800;
-          color: #6b4729; /* สีน้ำตาลแบรนด์หลัก */
-          letter-spacing: 2px;
         }
 
         .alertConfirmBtn {
