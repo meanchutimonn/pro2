@@ -191,7 +191,7 @@ export default function RegisterPage() {
                 </label>
                 <label style={{ ...styles.roleBox, border: role === "merchant" ? "2px solid #614124" : "1px solid #ddd", background: role === "merchant" ? "#f4f6ff" : "white" }}>
                   <input type="radio" value="merchant" checked={role === "merchant"} onChange={(e) => setRole(e.target.value)} style={{ display: "none" }} />
-                  <div style={styles.roleContent}><Store size={18} /> ร้านค้า</div>
+                  <div style={styles.roleContent}><Store size={18} /> ผู้ประกอบการร้านค้า</div>
                 </label>
               </div>
             </div>
