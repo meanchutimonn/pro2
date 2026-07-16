@@ -12,6 +12,9 @@ export default function AdminSidebar() {
 
   const [menuOpen, setMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  
+  // ✅ เพิ่ม State สำหรับควบคุมการแสดงผลของ Logout Popup
+  const [showLogoutPopup, setShowLogoutPopup] = useState(false);
 
   useEffect(() => {
 
@@ -25,6 +28,13 @@ export default function AdminSidebar() {
     return () => window.removeEventListener("resize", checkScreen);
 
   }, []);
+
+  // ✅ ฟังก์ชันสำหรับสั่งออกจากระบบจริง
+  const handleConfirmLogout = async () => {
+    setShowLogoutPopup(false);
+    await signOut(auth);
+    router.push("/login");
+  };
 
   return (
     <>
@@ -106,28 +116,53 @@ export default function AdminSidebar() {
           }}
         />
 
+        {/* ⚡ เปลี่ยนจากเรียก window.confirm เป็นการเปิด State Popup แทน */}
         <button
-          onClick={async () => {
-
-            const confirmLogout = window.confirm(
-              "คุณต้องการออกจากระบบจริง ๆ ใช่หรือไม่?"
-            );
-
-            if (!confirmLogout) return;
-
-            await signOut(auth);
-            router.push("/login");
-
-          }}
+          onClick={() => setShowLogoutPopup(true)}
           style={logoutBtn}
         >
-          <span className="material-symbols-outlined" style={{marginRight:6}}>
+          <span className="material-symbols-outlined" style={{ marginRight: 6 }}>
             logout
           </span>
           ออกจากระบบ
         </button>
 
       </div>
+
+      {/* 🔔 CUSTOM LOGOUT POPUP MODAL */}
+      {showLogoutPopup && (
+        <div style={popupOverlay}>
+          <div style={popupCard}>
+            
+            {/* ส่วนหัวคาร์ดแจ้งเตือน */}
+            <div style={iconWrapper}>
+              <span className="material-symbols-outlined" style={{ fontSize: 48, color: "#ef4444" }}>
+                info
+              </span>
+            </div>
+
+            <h3 style={popupTitle}>ยืนยันการออกจากระบบ</h3>
+            <p style={popupDesc}>คุณต้องการออกจากระบบจริง ๆ ใช่หรือไม่?</p>
+
+            {/* ปุ่มกดยืนยัน / ยกเลิก */}
+            <div style={btnGroup}>
+              <button 
+                onClick={() => setShowLogoutPopup(false)} 
+                style={cancelBtn}
+              >
+                ยกเลิก
+              </button>
+              <button 
+                onClick={handleConfirmLogout} 
+                style={confirmBtn}
+              >
+                ออกจากระบบ
+              </button>
+            </div>
+
+          </div>
+        </div>
+      )}
     </>
   );
 }
@@ -222,4 +257,77 @@ const logoutBtn:any = {
   display: "flex",
   alignItems: "center",
   gap: 4,
+};
+
+// 🎨 สไตล์สำหรับ Custom Popup
+const popupOverlay: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.5)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 2000,
+  backdropFilter: "blur(4px)",
+};
+
+const popupCard: React.CSSProperties = {
+  background: "white",
+  width: "90%",
+  maxWidth: "340px",
+  borderRadius: "20px",
+  padding: "30px 24px",
+  textAlign: "center",
+  boxShadow: "0 10px 25px rgba(0,0,0,0.15)",
+};
+
+const iconWrapper: React.CSSProperties = {
+  marginBottom: "16px",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+};
+
+const popupTitle: React.CSSProperties = {
+  fontSize: "18px",
+  fontWeight: "bold",
+  color: "#333",
+  marginBottom: "8px",
+  margin: 0,
+};
+
+const popupDesc: React.CSSProperties = {
+  fontSize: "14px",
+  color: "#666",
+  marginBottom: "24px",
+  margin: 0,
+};
+
+const btnGroup: React.CSSProperties = {
+  display: "flex",
+  gap: "12px",
+};
+
+const cancelBtn: React.CSSProperties = {
+  flex: 1,
+  background: "#f3f4f6",
+  color: "#4b5563",
+  border: "none",
+  padding: "12px",
+  borderRadius: "12px",
+  fontWeight: "bold",
+  fontSize: "14px",
+  cursor: "pointer",
+};
+
+const confirmBtn: React.CSSProperties = {
+  flex: 1,
+  background: "#ef4444",
+  color: "white",
+  border: "none",
+  padding: "12px",
+  borderRadius: "12px",
+  fontWeight: "bold",
+  fontSize: "14px",
+  cursor: "pointer",
 };

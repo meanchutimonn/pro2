@@ -24,14 +24,28 @@ export default function AdminAccountsPage() {
 
   const [currentAdminUID, setCurrentAdminUID] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [banUser, setBanUser] = useState<any>(null);
 
-  // ✅ State สำหรับควบคุม Pop-up บัญชีผู้ดูแลระบบ
+  // ✅ State สำหรับควบคุม Pop-up ข้อมูลบัญชี
   const [selectedAdmin, setSelectedAdmin] = useState<any | null>(null);
   const [selectedUser, setSelectedUser] = useState<any | null>(null);
-  // ✅ State สำหรับจัดการการแก้ไขชื่อใน Pop-up
+  
+  // ✅ State สำหรับจัดการการแก้ไขชื่อใน Pop-up แอดมิน
   const [isEditing, setIsEditing] = useState(false);
   const [editName, setEditName] = useState("");
+
+  // 🔔 [เพิ่มใหม่] State สำหรับจัดการ Custom Popup (Alert / Confirm) แทนของเดิมที่เป็นเหลี่ยมเบราว์เซอร์
+  const [customPopup, setCustomPopup] = useState<{
+    isOpen: boolean;
+    type: "info" | "warning" | "danger";
+    title: string;
+    message: string;
+    onConfirm?: () => void;
+  }>({
+    isOpen: false,
+    type: "info",
+    title: "",
+    message: "",
+  });
 
   useEffect(() => {
     fetchUsers();
@@ -111,27 +125,35 @@ export default function AdminAccountsPage() {
 
   const currentUsers = processedUsers.slice(0, usersPerPage);
 
-  const confirmDelete = async (user: any) => {
+  // ⚡ [แก้ไข] เปลี่ยนจาก alert และ confirm มาใช้ Custom Popup
+  const confirmDelete = (user: any) => {
     if (user.uid === currentAdminUID) {
-      alert("คุณไม่สามารถลบบัญชีตนเองได้");
+      setCustomPopup({
+        isOpen: true,
+        type: "warning",
+        title: "เกิดข้อผิดพลาด",
+        message: "คุณไม่สามารถลบบัญชีตนเองได้",
+      });
       return;
     }
 
-    const ok = confirm(
-      `ถ้าลบบัญชีของ : ${user.email} ?\nจะไม่สามารถกู้คืนได้`
-    );
-
-    if (!ok) return;
-
-    await deleteDoc(doc(db, "users", user.uid));
-
-    if (selectedAdmin?.uid === user.uid) {
-      setSelectedAdmin(null);
-    }
-
-    fetchUsers();
+    setCustomPopup({
+      isOpen: true,
+      type: "danger",
+      title: "ยืนยันการลบบัญชี",
+      message: `${user.email}?\nเมื่อลบแล้วจะไม่สามารถกู้คืนข้อมูลได้อีก`,
+      onConfirm: async () => {
+        await deleteDoc(doc(db, "users", user.uid));
+        if (selectedAdmin?.uid === user.uid) {
+          setSelectedAdmin(null);
+        }
+        setCustomPopup(prev => ({ ...prev, isOpen: false }));
+        fetchUsers();
+      }
+    });
   };
 
+  // ⚡ [แก้ไข] เปลี่ยนจาก confirm แบน มาใช้ Custom Popup
   const handleBan = async (user: any) => {
     if (user.status === "banned") {
       await updateDoc(doc(db, "users", user.uid), {
@@ -142,24 +164,35 @@ export default function AdminAccountsPage() {
       return;
     }
 
-    const ok = confirm(`คุณมั่นใจว่าจะแบน ${user.email} เป็นเวลา 7 วันใช่ไหม?`);
-    if (!ok) return;
+    setCustomPopup({
+      isOpen: true,
+      type: "warning",
+      title: "ยืนยันการระงับบัญชี",
+      message: `${user.email} เป็นเวลา 7 วันใช่ไหม?`,
+      onConfirm: async () => {
+        const banUntil = new Date();
+        banUntil.setDate(banUntil.getDate() + 7);
 
-    const banUntil = new Date();
-    banUntil.setDate(banUntil.getDate() + 7);
-
-    await updateDoc(doc(db, "users", user.uid), {
-      status: "banned",
-      banUntil: banUntil
+        await updateDoc(doc(db, "users", user.uid), {
+          status: "banned",
+          banUntil: banUntil
+        });
+        
+        setCustomPopup(prev => ({ ...prev, isOpen: false }));
+        fetchUsers();
+      }
     });
-
-    fetchUsers();
   };
 
   // ✅ ฟังก์ชันอัปเดตชื่อใหม่ลงไปที่ Firestore บัญชี Admin
   const handleUpdateName = async () => {
     if (!editName.trim()) {
-      alert("กรุณากรอกชื่อด้วยครับ");
+      setCustomPopup({
+        isOpen: true,
+        type: "warning",
+        title: "กรอกข้อมูลไม่ครบถ้วน",
+        message: "กรุณากรอกชื่อด้วยครับ",
+      });
       return;
     }
 
@@ -174,7 +207,12 @@ export default function AdminAccountsPage() {
       fetchUsers();
     } catch (error) {
       console.error("Error updating name:", error);
-      alert("เกิดข้อผิดพลาดในการแก้ไขชื่อ");
+      setCustomPopup({
+        isOpen: true,
+        type: "danger",
+        title: "เกิดข้อผิดพลาด",
+        message: "เกิดข้อผิดพลาดในการแก้ไขชื่อ กรุณาลองใหม่อีกครั้ง",
+      });
     }
   };
 
@@ -388,7 +426,6 @@ export default function AdminAccountsPage() {
               <div style={infoGroup}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
                   <label style={infoLabel}>ชื่อผู้ดูแลระบบ</label>
-                  {/* ✅ แก้ไข: เปลี่ยนจากไอคอนดินสอเป็นปุ่มข้อความ "แก้ไขชื่อ" ที่ดูเป็นทางการและมีสไตล์ขึ้น */}
                   {!isEditing && (
                     <button
                       style={editNameTextBtn}
@@ -540,6 +577,73 @@ export default function AdminAccountsPage() {
           </div>
         </div>
       )}
+
+      {/* ========================================================================= */}
+      {/* 🔔 CUSTOM CONFIRM / ALERT POPUP */}
+      {/* ========================================================================= */}
+      {customPopup.isOpen && (
+        <div style={popupOverlay}>
+          <div style={popupCard}>
+            <button 
+              style={modalCloseBtn} 
+              onClick={() => setCustomPopup(prev => ({ ...prev, isOpen: false }))}
+            >
+              ×
+            </button>
+
+            <div style={iconWrapper}>
+              {customPopup.type === "danger" && (
+                <span className="material-symbols-outlined" style={{ fontSize: 48, color: "#ef4444" }}>
+                  dangerous
+                </span>
+              )}
+              {customPopup.type === "warning" && (
+                <span className="material-symbols-outlined" style={{ fontSize: 48, color: "#f59e0b" }}>
+                  warning
+                </span>
+              )}
+              {customPopup.type === "info" && (
+                <span className="material-symbols-outlined" style={{ fontSize: 48, color: "#2563eb" }}>
+                  info
+                </span>
+              )}
+            </div>
+
+            <h3 style={popupTitle}>{customPopup.title}</h3>
+            <p style={popupDesc}>{customPopup.message}</p>
+
+            <div style={btnGroup}>
+              {/* ถ้ามีฟังก์ชัน onConfirm จะแสดงปุ่มยกเลิกคู่กับยืนยัน แต่ถ้าไม่มี (เป็น alert ธรรมดา) จะแสดงแค่ปุ่มตกลง */}
+              {customPopup.onConfirm ? (
+                <>
+                  <button 
+                    onClick={() => setCustomPopup(prev => ({ ...prev, isOpen: false }))} 
+                    style={cancelBtn}
+                  >
+                    ยกเลิก
+                  </button>
+                  <button 
+                    onClick={customPopup.onConfirm} 
+                    style={{ 
+                      ...confirmBtn, 
+                      background: customPopup.type === "danger" ? "#ef4444" : "#614124" 
+                    }}
+                  >
+                    ยืนยัน
+                  </button>
+                </>
+              ) : (
+                <button 
+                  onClick={() => setCustomPopup(prev => ({ ...prev, isOpen: false }))} 
+                  style={{ ...confirmBtn, background: "#614124" }}
+                >
+                  ตกลง
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -553,6 +657,8 @@ function StatCard({ title, value }: { title: string, value: number }) {
     </div>
   )
 }
+
+/* ... styles และโค้ดฟังก์ชันอื่น ๆ ยังคงเดิม ... */
 
 function RoleBadge({ role }: { role: string }) {
   const color = role === "merchant" ? "#f59e0b" : "#3b82f6";
@@ -720,7 +826,8 @@ const modalCloseBtn = {
   fontSize: "28px",
   cursor: "pointer",
   color: "#999",
-  lineHeight: "1"
+  lineHeight: "1",
+  zIndex: 10
 } as const;
 
 const modalBody = {
@@ -776,7 +883,6 @@ const infoValue = {
   wordBreak: "break-all"
 } as const;
 
-// ✅ แก้ไขสไตล์ใหม่: ปุ่มข้อความ "แก้ไขชื่อ" ที่มีความเป็นทางการ มินิมอล และสวยงาม
 const editNameTextBtn = {
   background: "none",
   border: "none",
@@ -818,3 +924,78 @@ const cancelSmallBtn = {
   cursor: "pointer",
   fontSize: "12px"
 } as const;
+
+// 🎨 สไตล์ของ Custom Confirm / Alert Popup เพิ่มใหม่
+const popupOverlay: React.CSSProperties = {
+  position: "fixed",
+  inset: 0,
+  background: "rgba(0,0,0,0.5)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 3000, // ตั้งให้ทับบน Modal ปกติอีกชั้น
+  backdropFilter: "blur(4px)",
+};
+
+const popupCard: React.CSSProperties = {
+  background: "white",
+  width: "90%",
+  maxWidth: "360px",
+  borderRadius: "20px",
+  padding: "36px 24px 24px 24px",
+  textAlign: "center",
+  boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+  position: "relative"
+};
+
+const iconWrapper: React.CSSProperties = {
+  marginBottom: "16px",
+  display: "flex",
+  justifyContent: "center",
+  alignItems: "center",
+};
+
+const popupTitle: React.CSSProperties = {
+  fontSize: "18px",
+  fontWeight: "bold",
+  color: "#333",
+  marginBottom: "10px",
+  margin: 0,
+};
+
+const popupDesc: React.CSSProperties = {
+  fontSize: "14px",
+  color: "#555",
+  marginBottom: "24px",
+  margin: 0,
+  lineHeight: "1.5",
+  whiteSpace: "pre-line", // รองรับการขึ้นบรรทัดใหม่ \n
+};
+
+const btnGroup: React.CSSProperties = {
+  display: "flex",
+  gap: "12px",
+};
+
+const cancelBtn: React.CSSProperties = {
+  flex: 1,
+  background: "#f3f4f6",
+  color: "#4b5563",
+  border: "none",
+  padding: "12px",
+  borderRadius: "12px",
+  fontWeight: "bold",
+  fontSize: "14px",
+  cursor: "pointer",
+};
+
+const confirmBtn: React.CSSProperties = {
+  flex: 1,
+  color: "white",
+  border: "none",
+  padding: "12px",
+  borderRadius: "12px",
+  fontWeight: "bold",
+  fontSize: "14px",
+  cursor: "pointer",
+};
