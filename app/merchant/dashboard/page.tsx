@@ -11,6 +11,7 @@ import {
   doc,
 } from "firebase/firestore";
 import { useRouter, usePathname } from "next/navigation";
+import { Icon } from "@iconify/react"; // 💡 ดึง Icon เข้ามาใช้งานเพื่อความสวยงาม
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -24,6 +25,24 @@ export default function DashboardPage() {
   const [selectedReview, setSelectedReview] = useState<string | null>(null);
   const [reason, setReason] = useState("");
 
+  // 🔔 [NEW] State สำหรับคุมการแสดงผลกล่อง Toast แจ้งเตือนด้านบนจอ
+  const [toast, setToast] = useState<{
+    show: boolean;
+    type: "success" | "warning";
+    message: string;
+  }>({
+    show: false,
+    type: "success",
+    message: ""
+  });
+
+  // 🔔 ฟังก์ชันเรียกเปิดใช้งาน Toast แจ้งเตือน และซ่อนตัวเองใน 3 วินาที
+  const showToastNotification = (type: "success" | "warning", message: string) => {
+    setToast({ show: true, type, message });
+    setTimeout(() => {
+      setToast((prev) => ({ ...prev, show: false }));
+    }, 3000);
+  };
 
   const fetchData = async () => {
     const user = auth.currentUser;
@@ -104,16 +123,22 @@ export default function DashboardPage() {
   const submitReport = async () => {
     if (!selectedReview || !reason) return;
 
-    await updateDoc(doc(db, "reviews", selectedReview), {
-      reported: true,
-      reportReason: reason,
-      reportedAt: new Date(),
-    });
+    try {
+      await updateDoc(doc(db, "reviews", selectedReview), {
+        reported: true,
+        reportReason: reason,
+        reportedAt: new Date(),
+      });
 
-    alert("รายงานสำเร็จ");
-    setSelectedReview(null);
-    setReason("");
-    fetchData();
+      // 🌟 [แก้ไข] ปิดป๊อปอัพ และเรียกใช้งาน Toast แจ้งเตือนสไลด์บนจอแทน alert() ตัวเดิม
+      setSelectedReview(null);
+      setReason("");
+      showToastNotification("success", "รายงานรีวิวสำเร็จเรียบร้อยแล้ว");
+      fetchData();
+    } catch (error) {
+      console.error(error);
+      showToastNotification("warning", "เกิดข้อผิดพลาดในการส่งรายงาน");
+    }
   };
 
   const formatReviewDate = (review: any) => {
@@ -130,6 +155,18 @@ export default function DashboardPage() {
 
   return (
     <div style={containerStyle}>
+      
+      {/* 🔔 [NEW] โครงสร้าง Toast สไลด์แจ้งเตือนจากขอบจอด้านบน */}
+      <div className={`topToastBar ${toast.show ? "toastShow" : ""}`}>
+        <div className={`toastContent ${toast.type === "success" ? "toastSuccess" : "toastWarning"}`}>
+          <Icon 
+            icon={toast.type === "success" ? "ep:success-filled" : "ph:warning-circle-fill"} 
+            width="22" 
+          />
+          <span className="toastText">{toast.message}</span>
+        </div>
+      </div>
+
       <TabBar pathname={pathname} router={router} />
 
       <div style={cardStyle}>
@@ -144,7 +181,7 @@ export default function DashboardPage() {
           <StatCard title="คูปองถูกใช้" value={couponUsedCount} />
         </div>
 
-        {/* ===== REVIEWS TABLE (ส่วนที่ปรับปรุงใหม่ตามรูป) ===== */}
+        {/* ===== REVIEWS TABLE ===== */}
         <h3 style={sectionTitle}>รีวิวจากลูกค้า</h3>
 
         <div style={tableWrapper}>
@@ -219,6 +256,54 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
+
+      {/* 🔔 [NEW Styles] CSS สำหรับแท่ง Toast ด้านบน ให้เข้าคู่กับดีไซน์แอปของคุณ */}
+      <style jsx global>{`
+        .topToastBar {
+          position: fixed;
+          top: -100px;
+          left: 0;
+          width: 100%;
+          display: flex;
+          justify-content: center;
+          padding: 0 20px;
+          z-index: 100000;
+          transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+
+        .toastShow {
+          transform: translateY(120px);
+        }
+
+        .toastContent {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 14px 20px;
+          border-radius: 16px;
+          box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+          width: 100%;
+          max-width: 350px;
+        }
+
+        .toastSuccess {
+          background: #E6F4EA;
+          color: #137333;
+          border: 1px solid #A3E2B1;
+        }
+
+        .toastWarning {
+          background: #FEF7E0;
+          color: #B06000;
+          border: 1px solid #FADF9C;
+        }
+
+        .toastText {
+          font-size: 14px;
+          font-weight: 700;
+          line-height: 1.4;
+        }
+      `}</style>
     </div>
   );
 }
@@ -272,6 +357,7 @@ const containerStyle = {
   borderRadius: 16,
   boxShadow: "0 5px 20px rgba(0,0,0,0.05)",
   fontFamily: "'Inter', sans-serif",
+  position: "relative" as const, // เพิ่มบรรทัดนี้เพื่อให้สอดคล้องกับการวาง Toast
 };
 
 const cardStyle = { marginTop: 20 };
@@ -308,7 +394,7 @@ const statTitle = { color: "#6b7280", marginBottom: 8, fontSize: 14 };
 const statNumber = { fontSize: 36, color: "#065f46", margin: 0 };
 const statUnit = { color: "#6b7280", fontSize: 12 };
 
-/* TABLE STYLE (เลียนแบบรูปภาพ) */
+/* TABLE STYLE */
 const tableWrapper = {
   border: "1px solid #e5e7eb",
   borderRadius: 12,
@@ -320,7 +406,7 @@ const tableStyle = {
   textAlign: "left" as const,
 };
 const headerRow = {
-  backgroundColor: "#5D4037", // สีน้ำตาลเข้มตามภาพ
+  backgroundColor: "#5D4037",
   color: "white",
 };
 const thStyle = { padding: "16px", fontWeight: "600", fontSize: 14 };
@@ -329,7 +415,7 @@ const rowStyle = { transition: "background 0.2s" };
 const emptyCell = { padding: 40, textAlign: "center" as const, color: "#9ca3af" };
 
 const reportBtnStyle = {
-  background: "#e53935", // สีแดงตามปุ่ม Delete ในรูป
+  background: "#e53935",
   color: "white",
   border: "none",
   padding: "8px 16px",
