@@ -30,6 +30,7 @@ const W = {
   pink: "#FF7A7A",
 };
 
+// ── ฟังก์ชันคำนวณระยะทาง (Haversine) ──────────────────────────────────────────
 function calculateDistance(
   lat1: number, lon1: number,
   lat2: number, lon2: number
@@ -58,8 +59,8 @@ const allTrips = [
     id: 1,
     title: "สงบใจในอาราม",
     subtitle: "ในวันที่ชีวิตหมุนเร็วเกินไปจนเกิดความเหนื่อยล้า เราขอชวนคุณทิ้งความวุ่นวายไว้ข้างหลัง แล้วออกเดินทางไปสัมผัสความสงบภายใน",
-    image: "/photo/pointaram.png",
-    heroImage: "/photo/temple_trip.png",
+    image: "/photo/tripextra.png",
+    heroImage: "/photo/tripextra.png",
     points: 50,
     stops: [],
   },
@@ -67,8 +68,8 @@ const allTrips = [
     id: 2,
     title: "The Green Caffeine Tour",
     subtitle: 'ร่วมเดินทางในทริปพิเศษที่จะพาไป "Hopping" คาเฟ่ที่ดีที่สุดในย่านสามพราน ทริปที่คัดมาแล้วว่าไม่ได้มีดีแค่กาแฟ',
-    image: "/photo/green cafe.png",
-    heroImage: "/photo/cafe_tour.png",
+    image: "/photo/cafacontent.png",
+    heroImage: "/photo/cafacontent.png",
     points: 50,
     stops: [],
   },
@@ -76,8 +77,8 @@ const allTrips = [
     id: 3,
     title: "One Day Magic Sam Phran",
     subtitle: "มาเปลี่ยนวันว่างธรรมดา ให้เป็นวันแห่งการพักผ่อนที่สามพราน",
-    image: "/photo/oneday.png",
-    heroImage: "/photo/sampran_trip.png",
+    image: "/photo/foodcontent.png",
+    heroImage: "/photo/tripextra.png",
     points: 50,
     stops: [],
   },
@@ -97,7 +98,6 @@ function StopRow({
   userLoc,
   cafes,
   reviewStat,
-  onShowLockedAlert, // 🔔 ส่งฟังก์ชันป๊อปอัพคัสตอมเข้ามาแทน alert
 }: {
   stop: TripStop;
   isChecked: boolean;
@@ -109,7 +109,6 @@ function StopRow({
     avg: number;
     count: number;
   };
-  onShowLockedAlert: () => void;
 }) {
   const router = useRouter();
   const cafeData = cafes.find((c) => c.locationName === stop.name);
@@ -169,7 +168,7 @@ function StopRow({
           if (isChecked) {
             onMapClick();
           } else {
-            onShowLockedAlert(); // 🔔 เรียกใช้ Custom Popup
+            alert("📍 คุณต้องไปเช็คอินที่สถานที่นี้ก่อนเพื่อดูในแผนที่ค่ะ");
           }
         }}
         style={{
@@ -207,15 +206,6 @@ export default function MissionPage() {
   const [showClaimedPopup, setShowClaimedPopup] = useState(false);
   const [latestPointsEarned, setLatestPointsEarned] = useState(50);
 
-  // ── 🔔 [NEW] State สำหรับจัดการ Custom Popup หน้า Mission ──
-  const [customAlert, setCustomAlert] = useState<{ isOpen: boolean; title: string; message: string; icon: string; iconColor: string }>({
-    isOpen: false,
-    title: "",
-    message: "",
-    icon: "lucide:lock",
-    iconColor: W.pink
-  });
-
   const [reviewStats, setReviewStats] = useState<Record<string, { avg: number; count: number }>>({});
   const [randomImages, setRandomImages] = useState<{ temple: string | null; cafe: string | null; all: string | null }>({
     temple: null, cafe: null, all: null
@@ -232,6 +222,7 @@ export default function MissionPage() {
       const missionSnap = await getDoc(doc(db, "userMissions", user.uid));
       if (missionSnap.exists()) {
         const data = missionSnap.data();
+        // เงื่อนไข: ถ้าเป็น active หรือ completed แต่ "ยังไม่ได้เคลมรางวัล" (rewardClaimed != true) ให้ดึงข้อมูลมาทำต่อ/เตรียมเคลม
         if (
           (data.status === "active" || data.status === "completed") &&
           !data.rewardClaimed &&
@@ -329,17 +320,20 @@ export default function MissionPage() {
     ? activeMission.stops.filter((s) => historyIds.has(getStopId(s))).length
     : 0;
 
+  // ตรวจสอบว่าเช็คอินครบถ้วนหรือยัง
   const isReadyToClaim =
     !!activeMission &&
     activeMission.stops.length > 0 &&
     checkedCount === activeMission.stops.length;
 
+  // 💬 เมื่อทำภารกิจสำเร็จ ให้เด้งแค่แถบแบนเนอร์แจ้งเตือนด้านบน (ยังไม่สร้างโนติกระดิ่งในขั้นตอนนี้)
   useEffect(() => {
     if (isReadyToClaim) {
       setShowNotificationBanner(true);
     }
   }, [isReadyToClaim]);
 
+  // 🎯 ฟังก์ชันสำหรับกดรับรางวัล (ทำงานเมื่อกดปุ่มเขียวหรือกดเคลมจากแผนที่)
   const handleClaim = async (mission?: TripDetail) => {
     const auth = getAuth();
     const user = auth.currentUser;
@@ -354,23 +348,21 @@ export default function MissionPage() {
     const missionSnap = await getDoc(missionRef);
     const missionData = missionSnap.data();
 
+    // ป้องกันการกดเบิ้ลรับซ้ำ
     if (missionData?.rewardClaimed) {
-      setCustomAlert({
-        isOpen: true,
-        title: "รับรางวัลแล้ว",
-        message: "คุณได้รับรางวัลภารกิจนี้ไปเรียบร้อยแล้วค่ะ",
-        icon: "lucide:info",
-        iconColor: W.yellow
-      });
+      alert("คุณรับรางวัลภารกิจนี้ไปแล้ว");
       return;
     }
 
+    // ปิดแบนเนอร์แจ้งเตือนด้านบนออกไป
     setShowNotificationBanner(false);
 
+    // 1. อัปเดตคะแนนสะสมของผู้ใช้ใน Firebase
     await updateDoc(userRef, {
       balance: increment(rewardPoints),
     });
 
+    // 2. ปรับสถานะมิชชันเป็นสมบูรณ์และรับรางวัลแล้ว
     await setDoc(
       missionRef,
       {
@@ -382,6 +374,7 @@ export default function MissionPage() {
       { merge: true }
     );
 
+    // 3. 🔔 สร้างข้อมูลแจ้งเตือนลงกล่องกระดิ่ง ณ จังหวะนี้เท่านั้น!
     await addDoc(collection(db, "notifications"), {
       userId: user.uid,
       title: "ภารกิจสำเร็จ 🎉",
@@ -394,10 +387,12 @@ export default function MissionPage() {
       createdAt: serverTimestamp(),
     });
 
+    // ล้าง Local Storage
     localStorage.removeItem("activeMission");
     localStorage.removeItem("activeMissionId");
     localStorage.removeItem("activeMissionCompleted");
 
+    // 4. แสดง Pop-up ยืนยันการรับแต้มสำเร็จ
     setShowClaimedPopup(true);
   };
 
@@ -467,10 +462,11 @@ export default function MissionPage() {
           margin: 0 auto;
           position: relative;
         }
+          /* ถ้าเปิดบนจอคอมพิวเตอร์ขนาดใหญ่ ให้มีพื้นที่เว้นขอบบน-ล่างเล็กน้อยให้เห็นลายพื้นหลัง */
         @media (min-width: 761px) {
           .appContainer {
             margin: 20px auto;
-            border-radius: 24px;
+            border-radius: 24px; /* ใส่ขอบมนสวยๆ เฉพาะตอนเปิดบนคอม */
           }
         }
         @media (max-width: 760px) {
@@ -485,10 +481,10 @@ export default function MissionPage() {
           animation: bannerSlideDown 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
         .popup-fade-in {
-          animation: fadeIn 0.25s ease forwards;
+          animation: fadeIn 0.3s ease forwards;
         }
         .popup-slide-up {
-          animation: slideUp 0.35s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+          animation: slideUp 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
         }
         @keyframes bannerSlideDown {
           from { transform: translateY(-100px); opacity: 0; }
@@ -505,14 +501,14 @@ export default function MissionPage() {
       `}</style>
 
       <div className="appContainer">
-
-        {/* ── 1. แบนเนอร์เตือนให้กดรับรางวัล ── */}
+        
+        {/* ── 1. แบนเนอร์เตือนให้กดรับรางวัล (สไลด์จากขอบบน) ── */}
         {showNotificationBanner && activeMission && (
           <div style={{
             position: "absolute", top: 12, left: 0, right: 0,
             zIndex: 9999, display: "flex", justifyContent: "center", padding: "0 16px"
           }}>
-            <div
+            <div 
               className="banner-slide-down"
               onClick={handleBannerClick}
               style={{
@@ -606,45 +602,6 @@ export default function MissionPage() {
           </div>
         )}
 
-        {/* ── 🔔 [NEW POPUP] หน้าต่างแจ้งเตือน Custom Alert ทดแทนคำสั่ง alert() ดั้งเดิม ── */}
-        {customAlert.isOpen && (
-          <div className="popup-fade-in" style={{
-            position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
-            backgroundColor: "rgba(0,0,0,0.6)", zIndex: 10001,
-            display: "flex", alignItems: "center", justifyContent: "center", padding: 20
-          }}>
-            <div className="popup-slide-up" style={{
-              background: "white", borderRadius: 24, padding: "28px 20px",
-              width: "100%", maxWidth: 340, textAlign: "center",
-              boxShadow: "0 10px 30px rgba(0,0,0,0.2)"
-            }}>
-              <div style={{
-                width: 60, height: 60, background: `${customAlert.iconColor}15`, borderRadius: "50%",
-                display: "flex", alignItems: "center", justifyContent: "center",
-                margin: "0 auto 14px"
-              }}>
-                <Icon icon={customAlert.icon} width="32" height="32" style={{ color: customAlert.iconColor }} />
-              </div>
-              <h3 style={{ fontSize: 19, fontWeight: 800, color: W.text, margin: "0 0 8px 0" }}>
-                {customAlert.title}
-              </h3>
-              <p style={{ fontSize: 14, color: "#555", lineHeight: 1.5, margin: "0 0 22px 0" }}>
-                {customAlert.message}
-              </p>
-              <button
-                onClick={() => setCustomAlert({ ...customAlert, isOpen: false })}
-                style={{
-                  width: "100%", background: W.dark, color: "white", border: "none",
-                  borderRadius: 12, padding: "11px 0", fontWeight: 700,
-                  fontSize: 14, cursor: "pointer"
-                }}
-              >
-                ตกลง
-              </button>
-            </div>
-          </div>
-        )}
-
         <div ref={contentTopRef} />
 
         <div style={{ flex: 1, display: "flex", flexDirection: "column", background: W.bg }}>
@@ -656,7 +613,7 @@ export default function MissionPage() {
             alignItems: "center", justifyContent: "space-between", padding: "14px 20px",
           }}>
             <button
-              onClick={() => router.back()}
+              onClick={() => router.push('/')}
               style={{
                 width: 42, height: 42, borderRadius: "50%", background: W.dark,
                 border: "none", display: "flex", alignItems: "center",
@@ -665,7 +622,14 @@ export default function MissionPage() {
             >
               <Icon icon="lucide:chevron-left" width="22" height="22" />
             </button>
-            <span style={{ fontSize: 17, fontWeight: 800, color: W.text, flex: 1, textAlign: "center" }}>
+            <span
+              aria-hidden={true}
+              style={{
+                fontSize: 17, fontWeight: 800, color: W.text, flex: 1, textAlign: "center",
+                background: "transparent", border: "none", cursor: "default",
+                padding: 0, display: "block",
+              }}
+            >
               Mission Quest
             </span>
             <div style={{ width: 42 }} />
@@ -729,7 +693,7 @@ export default function MissionPage() {
                   <>
                     {/* Mission progress card */}
                     <div style={{
-                      background: isReadyToClaim ? "#f0fdf4" : "#fffbeb",
+                      background: isReadyToClaim ? "#f0fdf4" : "#fffbeb", 
                       border: isReadyToClaim ? "1px solid #bbf7d0" : "1px solid #fef3c7",
                       borderRadius: 24, padding: 20,
                       display: "flex", alignItems: "center", gap: 16, marginBottom: 24,
@@ -738,10 +702,10 @@ export default function MissionPage() {
                         width: 48, height: 48, background: isReadyToClaim ? "#dcfce7" : "#fef3c7", borderRadius: 12,
                         display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0,
                       }}>
-                        <Icon
-                          icon={isReadyToClaim ? "lucide:trophy" : "lucide:clipboard-list"}
-                          width="28" height="28"
-                          color={isReadyToClaim ? "#166534" : "#92400e"}
+                        <Icon 
+                          icon={isReadyToClaim ? "lucide:trophy" : "lucide:clipboard-list"} 
+                          width="28" height="28" 
+                          color={isReadyToClaim ? "#166534" : "#92400e"} 
                         />
                       </div>
                       <div style={{ flex: 1 }}>
@@ -772,14 +736,7 @@ export default function MissionPage() {
                           if (checkedCount > 0) {
                             setShowMap(true);
                           } else {
-                            // 🔔 เปลี่ยนจุดแจ้งเตือนปุ่มแผนที่ใหญ่ให้เป็น Custom Popup
-                            setCustomAlert({
-                              isOpen: true,
-                              title: "ยังไม่สามารถเปิดได้",
-                              message: "📍 คุณต้องเริ่มทำภารกิจ (เช็คอินอย่างน้อย 1 ที่) ก่อนจึงจะดูแผนที่รวมได้ค่ะ",
-                              icon: "lucide:map-pin",
-                              iconColor: W.pink
-                            });
+                            alert("📍 คุณต้องเริ่มทำภารกิจ (เช็คอินอย่างน้อย 1 ที่) ก่อนจึงจะดูแผนที่ได้ค่ะ");
                           }
                         }}
                         style={{
@@ -790,7 +747,7 @@ export default function MissionPage() {
                           display: "flex",
                           alignItems: "center",
                           gap: 4,
-                          cursor: checkedCount > 0 || isReadyToClaim ? "pointer" : "pointer",
+                          cursor: checkedCount > 0 || isReadyToClaim ? "pointer" : "not-allowed",
                           fontSize: 13,
                           fontWeight: 700,
                           color: isReadyToClaim ? "white" : checkedCount > 0 ? "#92400e" : "#ccc",
@@ -826,14 +783,6 @@ export default function MissionPage() {
                           userLoc={userLoc}
                           cafes={cafes}
                           reviewStat={reviewStats[stop.name]}
-                          // 🔔 ส่งฟังก์ชันสำหรับแสดงป๊อปอัพล็อกแผนที่รายชิ้นเข้าไป
-                          onShowLockedAlert={() => setCustomAlert({
-                            isOpen: true,
-                            title: "สถานที่นี้ยังถูกล็อกอยู่",
-                            message: `📍 คุณต้องเดินทางไปเช็คอินที่ร้าน "${stop.name}" ก่อน เพื่อเปิดดูพิกัดบนแผนที่ค่ะ`,
-                            icon: "lucide:lock",
-                            iconColor: W.pink
-                          })}
                         />
                       ))}
                     </div>
@@ -860,7 +809,7 @@ export default function MissionPage() {
                   return (
                     <div
                       key={item.id}
-                      onClick={() => router.push(`/trip?from=mission`)}
+                      onClick={() => router.push(`/trip?tripId=${item.id}&from=mission`)}
                       style={{
                         background: "white", borderRadius: 20, padding: 16,
                         border: `1px solid ${W.lightGray}`, cursor: "pointer",

@@ -157,7 +157,7 @@ function StopRow({
     >
       <div style={{
         width: 85, height: 85, borderRadius: 15,
-        background: `url('${stop.image || cafeData?.mainImage || "/photo/placeholder.jpg"}') center/cover #eee`,
+        background: `url('${stop.image || cafeData?.mainImage || "/photo/tripextra.png"}') center/cover #eee`,
         flexShrink: 0, boxShadow: "0 2px 8px rgba(0,0,0,0.05)",
       }} />
       <div style={{ flex: 1, minWidth: 0, display: "flex", flexDirection: "column", textAlign: "left", alignItems: "flex-start" }}>
@@ -361,12 +361,8 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
   };
 
   const handleBackCustom = () => {
-    if (fromPage === "mission") {
-      onBack();
-      router.push("/mission");
-    } else {
-      onBack();
-    }
+    // Delegate navigation to the provided onBack handler to avoid double-push loops
+    onBack();
   };
 
   if (!trip || !trip.stops) return <div>Loading...</div>;
