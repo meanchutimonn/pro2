@@ -2,6 +2,7 @@
 import React, { useState, useEffect } from "react";
 import { Icon } from "@iconify/react";
 import TripDetailPage from "@/app/components/TripDetailPage";
+import TripMapPage from "@/app/components/TripMapPage";
 import type { TripDetail } from "@/app/components/TripDetailPage";
 import { db } from "@/lib/firebase";
 import {
@@ -26,8 +27,8 @@ const trips: (TripDetail & { subtitle: string; image: string })[] = [
     id: 1,
     title: "สงบใจในอาราม",
     subtitle: "ในวันที่ชีวิตหมุนเร็วเกินไปจนเกิดความเหนื่อยล้า เราขอชวนคุณทิ้งความวุ่นวายไว้ข้างหลัง แล้วออกเดินทางไปสัมผัสความสงบภายใน",
-    image: "/photo/pointaram.png",
-    heroImage: "/photo/temple_trip.png",
+    image: "/photo/tripextra.png",
+    heroImage: "/photo/tripextra.png",
     points: 50,
     stops: [],
   },
@@ -35,8 +36,8 @@ const trips: (TripDetail & { subtitle: string; image: string })[] = [
     id: 2,
     title: "The Green Caffeine Tour",
     subtitle: 'ร่วมเดินทางในทริปพิเศษที่จะพาไป "Hopping" คาเฟ่ที่ดีที่สุดในย่านสามพราน ทริปที่คัดมาแล้วว่าไม่ได้มีดีแค่กาแฟ',
-    image: "/photo/green cafe.png",
-    heroImage: "/photo/cafe_tour.png",
+    image: "/photo/cafacontent.png",
+    heroImage: "/photo/cafacontent.png",
     points: 50,
     stops: [],
   },
@@ -44,17 +45,26 @@ const trips: (TripDetail & { subtitle: string; image: string })[] = [
     id: 3,
     title: "One Day Magic Sam Phran",
     subtitle: "มาเปลี่ยนวันว่างธรรมดา ให้เป็นวันแห่งการพักผ่อนที่สามพราน",
-    image: "/photo/oneday.png",
-    heroImage: "/photo/sampran_trip.png",
+    image: "/photo/foodcontent.png",
+    heroImage: "/photo/tripextra.png",
     points: 50,
     stops: [],
   },
 ];
 
-export default function TripExtraPage({ onBack, initialTripId }: { onBack: () => void; initialTripId?: number }) {
-  const [selectedTrip, setSelectedTrip] = useState<TripDetail | null>(
-    initialTripId ? (trips.find((t) => t.id === initialTripId) ?? null) : null
-  );
+export default function TripExtraPage({ onBack, initialTripId, initialOpenMap }: { onBack: () => void; initialTripId?: number; initialOpenMap?: boolean }) {
+  const [selectedTrip, setSelectedTrip] = useState<TripDetail | null>(null);
+  const [initialLoading, setInitialLoading] = useState(!!initialTripId);
+  const [openMapState, setOpenMapState] = useState<boolean>(() => {
+    try {
+      if (typeof window !== "undefined") {
+        const usp = new URLSearchParams(window.location.search);
+        const v = usp.get("openMap");
+        if (v === "1" || v === "true") return true;
+      }
+    } catch (e) {}
+    return !!initialOpenMap;
+  });
 
   const [userLocation, setUserLocation] = useState<{
     lat: number;
@@ -107,17 +117,6 @@ export default function TripExtraPage({ onBack, initialTripId }: { onBack: () =>
     loadImages();
   }, []);
 
-  if (selectedTrip) {
-    return (
-      <TripDetailPage
-        trip={selectedTrip}
-        onBack={() => setSelectedTrip(null)}
-        onHome={() => setSelectedTrip(null)}
-      />
-    );
-  }
-
-
   function getDistanceKm(lat1: number, lon1: number, lat2: number, lon2: number) {
     const R = 6371;
     const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -130,6 +129,161 @@ export default function TripExtraPage({ onBack, initialTripId }: { onBack: () =>
       Math.sin(dLon / 2) ** 2;
 
     return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+  }
+
+  // ✅ ดึงข้อมูลจุดแวะ (stops) ของทริปที่เลือก แล้วเซ็ตเป็นทริปที่กำลังดูอยู่
+  async function openTrip(trip: TripDetail & { subtitle: string; image: string }) {
+    const now = new Date();
+    const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+    const ref = doc(db, "monthlyTrips", monthKey);
+
+    let data: any;
+
+    await runTransaction(db, async (transaction) => {
+      const snap = await transaction.get(ref);
+
+      // ✅ ถ้ามีแล้ว → ใช้เลย
+      if (snap.exists() && snap.data()?.data) {
+        data = snap.data().data;
+        return;
+      }
+
+      // 🔥 ถ้ายังไม่มี → สุ่ม
+      const locSnap = await getDocs(collection(db, "locations"));
+
+      let all: any[] = [];
+      let cafe: any[] = [];
+      let temple: any[] = [];
+
+      locSnap.forEach(doc => {
+        const d = doc.data();
+        const item = { id: doc.id, ...d };
+
+        all.push(item);
+        if (d.category === "Cafe") cafe.push(item);
+        if (d.category === "Temple") temple.push(item);
+      });
+
+      const rand = (arr: any[]) => {
+        const shuffled = [...arr].sort(() => 0.5 - Math.random());
+
+        if (shuffled.length === 0) return [];
+        if (shuffled.length >= 5) return shuffled.slice(0, 5);
+
+        let result = [...shuffled];
+        while (result.length < 5) {
+          result.push(shuffled[result.length % shuffled.length]);
+        }
+        return result;
+      };
+
+      data = {
+        Cafeeine: rand(cafe),
+        อาราม: rand(temple),
+        Magic: rand(all),
+      };
+
+      // 🔥 เขียนแบบ transaction (ล็อค)
+      transaction.set(ref, {
+        month: monthKey,
+        data: data
+      });
+    });
+
+    // 🔥 เลือกหมวด
+    let type = "Magic";
+    if (trip.title.includes("Caffeine")) type = "Cafeeine";
+    else if (trip.title.includes("อาราม")) type = "อาราม";
+    const stopsRaw = Array.isArray(data[type]) ? data[type] : [];
+
+    const newTrip = {
+      ...trip,
+      stops: stopsRaw.map((item: any, i: number) => {
+
+        let distanceText = "loading...";
+
+        if (
+          userLocation &&
+          item.latitude &&
+          item.longitude
+        ) {
+          const d = getDistanceKm(
+            userLocation.lat,
+            userLocation.lng,
+            item.latitude,
+            item.longitude
+          );
+
+          distanceText = d.toFixed(1) + " km";
+        }
+
+        return {
+          id: i,
+          location_id: item.id, // ✅ เพิ่มเพื่อใช้เช็คอินอัตโนมัติ
+          locationId: item.id,  // ✅ เพิ่มเผื่อไว้กันเหนียว
+          cafeId: item.id,
+         // 1. ส่งชื่อร้านไปที่ตัวแปร name ตัวเดียวตรง ๆ
+          name: item.locationName || "ไม่พบชื่อ",
+
+          rating: item.rating ?? 0,
+          distance: distanceText,
+
+          description: item.description || "",
+          image: item.mainImage || item.extraImages?.[0] || "",
+        };
+      })
+    };
+
+    setSelectedTrip(newTrip);
+  }
+
+  // ✅ ถ้ามี initialTripId (เช่นกดมาจากหน้า Mission) ให้โหลดข้อมูลแล้วเข้าไปหน้ารายละเอียดทริปนั้นทันที
+  useEffect(() => {
+    if (!initialTripId) return;
+
+    const trip = trips.find((t) => t.id === initialTripId);
+    if (!trip) {
+      setInitialLoading(false);
+      return;
+    }
+
+    console.debug("TripExtraPage: initialTripId", initialTripId, "openMapState", openMapState);
+    openTrip(trip).finally(() => setInitialLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [initialTripId]);
+
+  if (initialLoading) {
+    return (
+      <div style={{ width: "100%", minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: W.bg }}>
+        <div style={{ color: W.muted, fontSize: 14 }}>กำลังโหลด...</div>
+      </div>
+    );
+  }
+
+  if (selectedTrip) {
+    const handleClose = initialTripId ? onBack : () => setSelectedTrip(null);
+    if (openMapState) {
+      return (
+        <TripMapPage
+          trip={selectedTrip}
+          onHome={handleClose}
+          onMapClose={handleClose}
+          onClaim={() => {
+            // After claiming, go back
+            handleClose();
+          }}
+        />
+      );
+    }
+
+    return (
+      <TripDetailPage
+        trip={selectedTrip}
+        onBack={handleClose}
+        onHome={handleClose}
+      />
+    );
   }
 
   return (
@@ -157,113 +311,7 @@ export default function TripExtraPage({ onBack, initialTripId }: { onBack: () =>
           return (
             <div
               key={trip.id}
-              onClick={async () => {
-
-                const now = new Date();
-                const monthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-
-                const ref = doc(db, "monthlyTrips", monthKey);
-
-                let data: any;
-
-                await runTransaction(db, async (transaction) => {
-
-                  const snap = await transaction.get(ref);
-
-                  // ✅ ถ้ามีแล้ว → ใช้เลย
-                  if (snap.exists() && snap.data()?.data) {
-                    data = snap.data().data;
-                    return;
-                  }
-
-                  // 🔥 ถ้ายังไม่มี → สุ่ม
-                  const locSnap = await getDocs(collection(db, "locations"));
-
-                  let all: any[] = [];
-                  let cafe: any[] = [];
-                  let temple: any[] = [];
-
-                  locSnap.forEach(doc => {
-                    const d = doc.data();
-                    const item = { id: doc.id, ...d };
-
-                    all.push(item);
-                    if (d.category === "Cafe") cafe.push(item);
-                    if (d.category === "Temple") temple.push(item);
-                  });
-
-                  const rand = (arr: any[]) => {
-                    const shuffled = [...arr].sort(() => 0.5 - Math.random());
-
-                    if (shuffled.length === 0) return [];
-                    if (shuffled.length >= 5) return shuffled.slice(0, 5);
-
-                    let result = [...shuffled];
-                    while (result.length < 5) {
-                      result.push(shuffled[result.length % shuffled.length]);
-                    }
-                    return result;
-                  };
-
-                  data = {
-                    Cafeeine: rand(cafe),
-                    อาราม: rand(temple),
-                    Magic: rand(all),
-                  };
-
-                  // 🔥 เขียนแบบ transaction (ล็อค)
-                  transaction.set(ref, {
-                    month: monthKey,
-                    data: data
-                  });
-                });
-
-                // 🔥 เลือกหมวด
-                let type = "Magic";
-                if (trip.title.includes("Caffeine")) type = "Cafeeine";
-                else if (trip.title.includes("อาราม")) type = "อาราม";
-                const stopsRaw = Array.isArray(data[type]) ? data[type] : [];
-
-                const newTrip = {
-                  ...trip,
-                  stops: stopsRaw.map((item: any, i: number) => {
-
-                    let distanceText = "loading...";
-
-                    if (
-                      userLocation &&
-                      item.latitude &&
-                      item.longitude
-                    ) {
-                      const d = getDistanceKm(
-                        userLocation.lat,
-                        userLocation.lng,
-                        item.latitude,
-                        item.longitude
-                      );
-
-                      distanceText = d.toFixed(1) + " km";
-                    }
-
-                    return {
-                      id: i,
-                      location_id: item.id, // ✅ เพิ่มเพื่อใช้เช็คอินอัตโนมัติ
-                      locationId: item.id,  // ✅ เพิ่มเผื่อไว้กันเหนียว
-                      cafeId: item.id,
-                     // 1. ส่งชื่อร้านไปที่ตัวแปร name ตัวเดียวตรง ๆ
-                      name: item.locationName || "ไม่พบชื่อ",
-
-                      rating: item.rating ?? 0,
-                      distance: distanceText,
-
-                      description: item.description || "",
-                      image: item.mainImage || item.extraImages?.[0] || "",
-                    };
-                  })
-                };
-
-                setSelectedTrip(newTrip);
-              }}
+              onClick={() => openTrip(trip)}
               className="trip-card"
               style={{
                 position: "relative",
