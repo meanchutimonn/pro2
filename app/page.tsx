@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import { Icon } from "@iconify/react";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { doc, getDoc } from "firebase/firestore";
-
+import LoginRequiredModal from "@/app/components/LoginRequiredModal";
 
 export default function HomePage() {
 
@@ -33,6 +33,7 @@ export default function HomePage() {
 
   // ✅ State สำหรับจุดแจ้งเตือนสีแดง
   const [hasNewNotification, setHasNewNotification] = useState(true);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   /* banner slider */
   const banners = [
@@ -206,7 +207,7 @@ export default function HomePage() {
     const user = auth.currentUser;
 
     if (!user) {
-      setAlertMessage("คุณยังไม่ได้เข้าสู่ระบบ");
+      setShowLoginModal(true);
     } else {
       router.push("/profile");
     }
@@ -299,7 +300,16 @@ export default function HomePage() {
             {/* กระดิ่งแจ้งเตือน */}
             <div
               style={{ position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
-              onClick={() => { setHasNewNotification(false); router.push("/notifications"); }}
+              onClick={() => {
+                const auth = getAuth();
+                if (!auth.currentUser) {
+                  setShowLoginModal(true);
+                  return;
+                }
+
+                setHasNewNotification(false);
+                router.push("/notifications");
+              }}
             >
               <Icon icon="basil:notification-on-solid" width="28" style={{ color: "#6b4729" }} />
               {hasNewNotification && (
@@ -566,7 +576,17 @@ export default function HomePage() {
           <p>เกม</p>
         </div>
 
-        <div className="navItem" onClick={() => router.push("/mission")}>
+        <div
+          className="navItem"
+          onClick={() => {
+            const auth = getAuth();
+            if (!auth.currentUser) {
+              setShowLoginModal(true);
+              return;
+            }
+            router.push("/mission");
+          }}
+        >
           <Icon icon="flowbite:clipboard-list-solid" width="26" />
           <p>Mission</p>
         </div>
@@ -608,6 +628,8 @@ export default function HomePage() {
       )}
 
       {/* 🔔 [FIXED] Custom Alert Popup แยกโลจิกตกลง กับ กากบาท ชัดเจน */}
+      <LoginRequiredModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
+
       {alertMessage && (
         <div className="popupOverlay" onClick={() => setAlertMessage(null)}>
           <div className="customAlertCard" onClick={(e) => e.stopPropagation()}>

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { Icon } from "@iconify/react";
 import TripMapPage from "../components/TripMapPage";
+import LoginRequiredModal from "../components/LoginRequiredModal";
 import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
 import {
@@ -205,6 +206,7 @@ export default function MissionPage() {
   const [showNotificationBanner, setShowNotificationBanner] = useState(false);
   const [showClaimedPopup, setShowClaimedPopup] = useState(false);
   const [latestPointsEarned, setLatestPointsEarned] = useState(50);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   const [reviewStats, setReviewStats] = useState<Record<string, { avg: number; count: number }>>({});
   const [randomImages, setRandomImages] = useState<{ temple: string | null; cafe: string | null; all: string | null }>({
@@ -501,6 +503,7 @@ export default function MissionPage() {
       `}</style>
 
       <div className="appContainer">
+        <LoginRequiredModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
         
         {/* ── 1. แบนเนอร์เตือนให้กดรับรางวัล (สไลด์จากขอบบน) ── */}
         {showNotificationBanner && activeMission && (
@@ -809,7 +812,15 @@ export default function MissionPage() {
                   return (
                     <div
                       key={item.id}
-                      onClick={() => router.push(`/trip?tripId=${item.id}&from=mission`)}
+                      onClick={() => {
+                        const auth = getAuth();
+                        if (!auth.currentUser) {
+                          setShowLoginModal(true);
+                          return;
+                        }
+
+                        router.push(`/trip?tripId=${item.id}&from=mission`);
+                      }}
                       style={{
                         background: "white", borderRadius: 20, padding: 16,
                         border: `1px solid ${W.lightGray}`, cursor: "pointer",

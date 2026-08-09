@@ -96,12 +96,26 @@ export default function CafeDetailPage({ cafe, onBack }: any) {
   useEffect(() => {
     const auth = getAuth();
 
-    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+    const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
       if (firebaseUser) {
-        setUser({
-          user_id: firebaseUser.uid,
-          name: firebaseUser.email
-        });
+        try {
+          const userDoc = await getDoc(doc(db, "users", firebaseUser.uid));
+          const userData = userDoc.exists() ? userDoc.data() : null;
+          const displayName = userData?.username || userData?.displayName || userData?.name || firebaseUser.email;
+
+          setUser({
+            user_id: firebaseUser.uid,
+            name: displayName,
+            photoURL: firebaseUser.photoURL,
+          });
+        } catch (error) {
+          console.error("Error resolving current user profile:", error);
+          setUser({
+            user_id: firebaseUser.uid,
+            name: firebaseUser.email,
+            photoURL: firebaseUser.photoURL,
+          });
+        }
       } else {
         setUser(null);
       }
@@ -316,7 +330,7 @@ export default function CafeDetailPage({ cafe, onBack }: any) {
                           textOverflow: "ellipsis",
                           whiteSpace: "nowrap"
                         }}>
-                          {r.user_name}
+                          {r.displayName || r.user_name || r.username || r.name || "ผู้ใช้"}
                         </b>
                       </div>
 
