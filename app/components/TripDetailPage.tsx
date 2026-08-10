@@ -516,7 +516,8 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
                     const missionData = missionSnap.exists() ? missionSnap.data() : null;
 
                     if (missionData && missionData.status === "active") {
-                      router.push("/mission");
+                      const missionTitle = missionData.tripTitle || "ภารกิจปัจจุบัน";
+                      setActiveMissionPopup({ isOpen: true, title: missionTitle });
                       return;
                     }
 
@@ -564,7 +565,8 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
                       const missionData = missionSnap.exists() ? missionSnap.data() : null;
 
                       if (missionData && missionData.status === "active") {
-                        router.push("/mission");
+                        const missionTitle = missionData.tripTitle || "ภารกิจปัจจุบัน";
+                        setActiveMissionPopup({ isOpen: true, title: missionTitle });
                         return;
                       }
 
