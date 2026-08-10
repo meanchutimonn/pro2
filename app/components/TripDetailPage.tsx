@@ -11,6 +11,7 @@ import {
 } from "firebase/firestore";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { getReviews } from "@/lib/reviewService";
+import LoginRequiredModal from "@/app/components/LoginRequiredModal";
 
 // ── Palette ────────────────────────────────────────────────────────────────────
 const W = {
@@ -203,20 +204,38 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
   // ── 🔔 [NEW] State สำหรับจัดการ Custom Popup แจ้งเตือนแอปพลิเคชัน ──
   const [activeMissionPopup, setActiveMissionPopup] = useState<{ isOpen: boolean; title: string }>({ isOpen: false, title: "" });
   const [startMissionPopup, setStartMissionPopup] = useState<{ isOpen: boolean; cafeId: string }>({ isOpen: false, cafeId: "" });
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [missionStatus, setMissionStatus] = useState<"none" | "active" | "completed">("none");
 
   useEffect(() => {
     const auth = getAuth();
     const unsubTab = onAuthStateChanged(auth, async (user) => {
-      if (!user) return;
+      if (!user) {
+        setMissionStatus("none");
+        return;
+      }
+
       const missionSnap = await getDoc(doc(db, "userMissions", user.uid));
-      if (missionSnap.exists() && missionSnap.data().status === "active") {
-        setActiveTab("my");
+      if (missionSnap.exists()) {
+        const missionData = missionSnap.data();
+        const isCurrentTrip = String(missionData.tripId) === String(trip.id);
+        if (missionData.status === "active" && isCurrentTrip) {
+          setMissionStatus("active");
+          setActiveTab("my");
+        } else if (missionData.status === "completed" && isCurrentTrip) {
+          setMissionStatus("completed");
+          setActiveTab(localStorage.getItem("activeMission") ? "my" : "all");
+        } else {
+          setMissionStatus("none");
+          setActiveTab(localStorage.getItem("activeMission") ? "my" : "all");
+        }
       } else {
+        setMissionStatus("none");
         setActiveTab(localStorage.getItem("activeMission") ? "my" : "all");
       }
     });
     return () => unsubTab();
-  }, []);
+  }, [trip.id]);
 
   useEffect(() => {
     const fetchCafes = async () => {
@@ -283,6 +302,9 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
     return match?.id;
   };
 
+  const firstStopCafeId = trip.stops[0] ? getCafeId(trip.stops[0].name) || "" : "";
+  const showStartMissionButton = !!getAuth().currentUser;
+
   // ── 🔔 [NEW FUNCTION] ฟังก์ชันคัดกรองลอจิกความปลอดภัยก่อนเข้าหน้าร้านค้า ──
   const handleCheckMissionBeforeNavigate = async (stopName: string, getCafeIdFn: any) => {
     const cafeId = getCafeIdFn(stopName);
@@ -292,7 +314,7 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
     const user = auth.currentUser;
 
     if (!user) {
-      router.push(`/cafe/${cafeId}`);
+      setShowLoginModal(true);
       return;
     }
 
@@ -474,7 +496,7 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
                 boxShadow: "0 4px 15px rgba(239,187,58,0.2)",
               }}>
                 <Icon icon="material-symbols:rewarded-ads" width="80" height="80" color={W.white} style={{ flexShrink: 0 }} />
-                <div style={{ textAlign: "left" }}>
+                <div style={{ textAlign: "left", flex: 1 }}>
                   <div style={{ fontSize: 26, fontWeight: 800, color: W.text }}>Get {trip.points} points</div>
                   <div style={{ fontSize: 14, color: W.text, lineHeight: 1.5, marginTop: 4, fontWeight: 500 }}>
                     เช็คอินครบทุกที่รับแต้มไปเลย! ระบบจะปลดล็อคให้อัตโนมัติเมื่อคุณไปเช็คอินที่ร้าน
@@ -482,6 +504,95 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
                 </div>
               </div>
 
+              {showStartMissionButton && (
+                <div
+                  onClick={async () => {
+                    const auth = getAuth();
+                    const user = auth.currentUser;
+                    if (!user) return;
+
+                    const missionRef = doc(db, "userMissions", user.uid);
+                    const missionSnap = await getDoc(missionRef);
+                    const missionData = missionSnap.exists() ? missionSnap.data() : null;
+
+                    if (missionData && missionData.status === "active") {
+                      const missionTitle = missionData.tripTitle || "ภารกิจปัจจุบัน";
+                      setActiveMissionPopup({ isOpen: true, title: missionTitle });
+                      return;
+                    }
+
+                    // ไม่มีภารกิจค้าง -> เปิด popup ยืนยันเริ่มภารกิจใหม่ตามปกติ
+                    setStartMissionPopup({ isOpen: true, cafeId: firstStopCafeId });
+                  }}
+                  style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 14,
+                    background: "#FFF7E6",
+                    border: "1px solid #FCE8B8",
+                    borderRadius: 18,
+                    padding: "14px 16px",
+                    marginBottom: 18,
+                    cursor: "pointer",
+                  }}
+                >
+                  <div style={{
+                    width: 24, height: 24,
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    flexShrink: 0,
+                  }}>
+                    <Icon icon="lucide:flag" width="22" height="22" color={W.text} />
+                  </div>
+
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: W.text }}>
+                      เริ่มภารกิจได้เลย!
+                    </div>
+                    <div style={{ fontSize: 12, color: W.muted, marginTop: 2 }}>
+                      เริ่มบันทึกการเดินทางและเช็คอินได้เลย
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={async (e) => {
+                      e.stopPropagation();
+                      const auth = getAuth();
+                      const user = auth.currentUser;
+                      if (!user) return;
+
+                      const missionRef = doc(db, "userMissions", user.uid);
+                      const missionSnap = await getDoc(missionRef);
+                      const missionData = missionSnap.exists() ? missionSnap.data() : null;
+
+                      if (missionData && missionData.status === "active") {
+                        const missionTitle = missionData.tripTitle || "ภารกิจปัจจุบัน";
+                        setActiveMissionPopup({ isOpen: true, title: missionTitle });
+                        return;
+                      }
+
+                      setStartMissionPopup({ isOpen: true, cafeId: firstStopCafeId });
+                    }}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      background: W.dark,
+                      color: W.white,
+                      border: "none",
+                      borderRadius: 12,
+                      padding: "9px 14px",
+                      fontSize: 13,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      flexShrink: 0,
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    <Icon icon="lucide:flag" width="14" height="14" />
+                    <span>เริ่มภารกิจ</span>
+                  </button>
+                </div>
+              )}
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
                 <div style={{ fontSize: 18, fontWeight: 800, color: W.text }}>เส้นทางแนะนำ</div>
                 <div style={{ fontSize: 13, color: W.muted }}>{checkedCount} / {trip.stops.length} ที่</div>
@@ -539,6 +650,8 @@ export default function TripDetailPage({ trip: initialTrip, onBack, onHome }: Tr
           </div>
         </div>
       )}
+
+      <LoginRequiredModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
 
       {/* ── 🔔 [POPUP 2] หน้าต่างยืนยันเข้าร่วมภารกิจใหม่สไตล์ Minimal ── */}
       {startMissionPopup.isOpen && (

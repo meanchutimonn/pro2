@@ -17,6 +17,7 @@ import {
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 import { useRouter } from "next/navigation";
 import { Icon } from "@iconify/react";
+import LoginRequiredModal from "@/app/components/LoginRequiredModal";
 
 export default function CouponPage() {
   const [coupons, setCoupons] = useState<any[]>([]);
@@ -27,6 +28,7 @@ export default function CouponPage() {
   const [selectedCoupon, setSelectedCoupon] = useState<any>(null);
   const [showConfirmPopup, setShowConfirmPopup] = useState(false); 
   const [userId, setUserId] = useState<string | null>(null);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   // 🔔 [NEW] State สำหรับคุมการเปิด/ปิด Toast แจ้งเตือนสไลด์จากด้านบน
   const [toast, setToast] = useState<{
@@ -48,17 +50,6 @@ export default function CouponPage() {
     const auth = getAuth();
 
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user) return;
-
-      setUserId(user.uid);
-
-      const userDoc = await getDoc(doc(db, "users", user.uid));
-
-      if (userDoc.exists()) {
-        const userData = userDoc.data();
-        setBalance(userData.balance || 0);
-      }
-
       const couponSnap = await getDocs(collection(db, "coupon"));
       setCoupons(
         couponSnap.docs.map((doc) => ({
@@ -74,6 +65,22 @@ export default function CouponPage() {
           ...doc.data(),
         }))
       );
+
+      if (!user) {
+        setUserId(null);
+        setBalance(0);
+        setMyCoupons([]);
+        return;
+      }
+
+      setUserId(user.uid);
+
+      const userDoc = await getDoc(doc(db, "users", user.uid));
+
+      if (userDoc.exists()) {
+        const userData = userDoc.data();
+        setBalance(userData.balance || 0);
+      }
 
       const mySnap = await getDocs(
         query(collection(db, "user_coupons"), where("user_id", "==", user.uid))
@@ -96,7 +103,7 @@ export default function CouponPage() {
   // 🔥 เช็คพอยท์ก่อนแลกรับสิทธิ์
   const triggerClaimVerify = (coupon: any) => {
     if (!userId) {
-      showToastNotification("warning", "กรุณาเข้าสู่ระบบเพื่อใช้งานคูปอง");
+      setShowLoginModal(true);
       return;
     }
 
@@ -238,7 +245,13 @@ export default function CouponPage() {
             <div
               className="card"
               key={c.id}
-              onClick={() => setSelectedCoupon({ ...c, location })}
+              onClick={() => {
+                if (!userId) {
+                  setShowLoginModal(true);
+                  return;
+                }
+                setSelectedCoupon({ ...c, location });
+              }}
             >
               <img src={location.mainImage} alt={location.locationName} />
 
@@ -265,6 +278,8 @@ export default function CouponPage() {
           );
         })}
       </div>
+
+      <LoginRequiredModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
 
       {/* Popup 1: รายละเอียดคูปอง */}
       {selectedCoupon && !showConfirmPopup && (
