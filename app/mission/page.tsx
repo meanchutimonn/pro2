@@ -96,6 +96,7 @@ function StopRow({
   isChecked,
   getCafeId,
   onMapClick,
+  onLockedClick,
   userLoc,
   cafes,
   reviewStat,
@@ -104,6 +105,7 @@ function StopRow({
   isChecked: boolean;
   getCafeId: (name: string) => string | undefined;
   onMapClick: () => void;
+  onLockedClick: () => void;
   userLoc: { lat: number; lng: number } | null;
   cafes: any[];
   reviewStat?: {
@@ -169,7 +171,7 @@ function StopRow({
           if (isChecked) {
             onMapClick();
           } else {
-            alert("📍 คุณต้องไปเช็คอินที่สถานที่นี้ก่อนเพื่อดูในแผนที่ค่ะ");
+            onLockedClick();
           }
         }}
         style={{
@@ -202,9 +204,10 @@ export default function MissionPage() {
   const [activeMission, setActiveMission] = useState<TripDetail | null>(null);
   const [missionLoading, setMissionLoading] = useState(true);
 
-  // ── States แจ้งเตือน ────────────────────────────────────────────────────────
+  // ── States แจ้งเตือน & Modals ────────────────────────────────────────────────
   const [showNotificationBanner, setShowNotificationBanner] = useState(false);
   const [showClaimedPopup, setShowClaimedPopup] = useState(false);
+  const [showLockedModal, setShowLockedModal] = useState(false); // 👈 State สำหรับเปิด Pop-up ล็อคแผนที่
   const [latestPointsEarned, setLatestPointsEarned] = useState(50);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
@@ -224,7 +227,6 @@ export default function MissionPage() {
       const missionSnap = await getDoc(doc(db, "userMissions", user.uid));
       if (missionSnap.exists()) {
         const data = missionSnap.data();
-        // เงื่อนไข: ถ้าเป็น active หรือ completed แต่ "ยังไม่ได้เคลมรางวัล" (rewardClaimed != true) ให้ดึงข้อมูลมาทำต่อ/เตรียมเคลม
         if (
           (data.status === "active" || data.status === "completed") &&
           !data.rewardClaimed &&
@@ -322,20 +324,17 @@ export default function MissionPage() {
     ? activeMission.stops.filter((s) => historyIds.has(getStopId(s))).length
     : 0;
 
-  // ตรวจสอบว่าเช็คอินครบถ้วนหรือยัง
   const isReadyToClaim =
     !!activeMission &&
     activeMission.stops.length > 0 &&
     checkedCount === activeMission.stops.length;
 
-  // 💬 เมื่อทำภารกิจสำเร็จ ให้เด้งแค่แถบแบนเนอร์แจ้งเตือนด้านบน (ยังไม่สร้างโนติกระดิ่งในขั้นตอนนี้)
   useEffect(() => {
     if (isReadyToClaim) {
       setShowNotificationBanner(true);
     }
   }, [isReadyToClaim]);
 
-  // 🎯 ฟังก์ชันสำหรับกดรับรางวัล (ทำงานเมื่อกดปุ่มเขียวหรือกดเคลมจากแผนที่)
   const handleClaim = async (mission?: TripDetail) => {
     const auth = getAuth();
     const user = auth.currentUser;
@@ -350,21 +349,17 @@ export default function MissionPage() {
     const missionSnap = await getDoc(missionRef);
     const missionData = missionSnap.data();
 
-    // ป้องกันการกดเบิ้ลรับซ้ำ
     if (missionData?.rewardClaimed) {
       alert("คุณรับรางวัลภารกิจนี้ไปแล้ว");
       return;
     }
 
-    // ปิดแบนเนอร์แจ้งเตือนด้านบนออกไป
     setShowNotificationBanner(false);
 
-    // 1. อัปเดตคะแนนสะสมของผู้ใช้ใน Firebase
     await updateDoc(userRef, {
       balance: increment(rewardPoints),
     });
 
-    // 2. ปรับสถานะมิชชันเป็นสมบูรณ์และรับรางวัลแล้ว
     await setDoc(
       missionRef,
       {
@@ -376,7 +371,6 @@ export default function MissionPage() {
       { merge: true }
     );
 
-    // 3. 🔔 สร้างข้อมูลแจ้งเตือนลงกล่องกระดิ่ง ณ จังหวะนี้เท่านั้น!
     await addDoc(collection(db, "notifications"), {
       userId: user.uid,
       title: "ภารกิจสำเร็จ 🎉",
@@ -389,12 +383,10 @@ export default function MissionPage() {
       createdAt: serverTimestamp(),
     });
 
-    // ล้าง Local Storage
     localStorage.removeItem("activeMission");
     localStorage.removeItem("activeMissionId");
     localStorage.removeItem("activeMissionCompleted");
 
-    // 4. แสดง Pop-up ยืนยันการรับแต้มสำเร็จ
     setShowClaimedPopup(true);
   };
 
@@ -464,11 +456,10 @@ export default function MissionPage() {
           margin: 0 auto;
           position: relative;
         }
-          /* ถ้าเปิดบนจอคอมพิวเตอร์ขนาดใหญ่ ให้มีพื้นที่เว้นขอบบน-ล่างเล็กน้อยให้เห็นลายพื้นหลัง */
         @media (min-width: 761px) {
           .appContainer {
             margin: 20px auto;
-            border-radius: 24px; /* ใส่ขอบมนสวยๆ เฉพาะตอนเปิดบนคอม */
+            border-radius: 24px;
           }
         }
         @media (max-width: 760px) {
@@ -505,7 +496,46 @@ export default function MissionPage() {
       <div className="appContainer">
         <LoginRequiredModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
         
-        {/* ── 1. แบนเนอร์เตือนให้กดรับรางวัล (สไลด์จากขอบบน) ── */}
+        {/* ── 1. Pop-up เตือนเมื่อกดดูแผนที่สถานที่ที่ยังไม่ได้เช็คอิน ── */}
+        {showLockedModal && (
+          <div className="popup-fade-in" style={{
+            position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: "rgba(0,0,0,0.5)", zIndex: 1000,
+            display: "flex", alignItems: "center", justifyContent: "center", padding: 20
+          }}>
+            <div className="popup-slide-up" style={{
+              background: "white", borderRadius: 28, padding: "32px 24px 24px",
+              width: "100%", maxWidth: 340, textAlign: "center",
+              boxShadow: "0 15px 35px rgba(0,0,0,0.25)",
+            }}>
+              <div style={{
+                width: 64, height: 64, background: "#fee2e2", borderRadius: "50%",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                margin: "0 auto 16px", color: W.pink
+              }}>
+                <Icon icon="tdesign:map-locked-filled" width="36" height="36" />
+              </div>
+              <h4 style={{ fontSize: 18, fontWeight: 800, color: W.text, margin: "0 0 8px 0" }}>
+                แผนที่ยังไม่เปิดใช้งาน
+              </h4>
+              <p style={{ fontSize: 14, color: W.muted, margin: "0 0 24px 0", lineHeight: 1.5 }}>
+                📍 คุณต้องไปเช็คอินที่สถานที่นี้ก่อนเพื่อดูในแผนที่ค่ะ
+              </p>
+              <button
+                onClick={() => setShowLockedModal(false)}
+                style={{
+                  width: "100%", background: W.dark, color: "white", border: "none",
+                  borderRadius: 14, padding: "12px 0", fontWeight: 700,
+                  fontSize: 15, cursor: "pointer", boxShadow: "0 4px 12px rgba(97,65,36,0.15)"
+                }}
+              >
+                รับทราบ
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ── 2. แบนเนอร์เตือนให้กดรับรางวัล (สไลด์จากขอบบน) ── */}
         {showNotificationBanner && activeMission && (
           <div style={{
             position: "absolute", top: 12, left: 0, right: 0,
@@ -562,7 +592,7 @@ export default function MissionPage() {
           </div>
         )}
 
-        {/* ── 2. POPUP แจ้งเตือนหลังจากกดเคลมแต้มสำเร็จแล้ว ── */}
+        {/* ── 3. POPUP แจ้งเตือนหลังจากกดเคลมแต้มสำเร็จแล้ว ── */}
         {showClaimedPopup && (
           <div className="popup-fade-in" style={{
             position: "absolute", top: 0, left: 0, right: 0, bottom: 0,
@@ -739,7 +769,7 @@ export default function MissionPage() {
                           if (checkedCount > 0) {
                             setShowMap(true);
                           } else {
-                            alert("📍 คุณต้องเริ่มทำภารกิจ (เช็คอินอย่างน้อย 1 ที่) ก่อนจึงจะดูแผนที่ได้ค่ะ");
+                            setShowLockedModal(true);
                           }
                         }}
                         style={{
@@ -783,6 +813,7 @@ export default function MissionPage() {
                           isChecked={historyIds.has(getStopId(stop))}
                           getCafeId={getCafeId}
                           onMapClick={() => setShowMap(true)}
+                          onLockedClick={() => setShowLockedModal(true)}
                           userLoc={userLoc}
                           cafes={cafes}
                           reviewStat={reviewStats[stop.name]}
@@ -843,14 +874,12 @@ export default function MissionPage() {
                         <div style={{ fontWeight: 800, fontSize: 15, color: W.text }}>{item.title}</div>
                         <div style={{ fontSize: 13, color: W.muted, marginTop: 4 }}>{item.subtitle}</div>
                       </div>
-                      <div style={{ marginLeft: "auto" }}>
-                        <Icon icon="lucide:chevron-right" width="20" color={W.muted} />
-                      </div>
                     </div>
-                  )
+                  );
                 })}
               </div>
             )}
+
           </div>
         </div>
       </div>

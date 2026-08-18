@@ -22,16 +22,13 @@ export default function HomePage() {
   const [touchEnd, setTouchEnd] = useState<number | null>(null);
   const [showCount, setShowCount] = useState(2);
 
-  // ✅ เพิ่ม State สำหรับคุมสถานะการเช็คหน้า Intro (ป้องกันการกระพริบของหน้าจอ)
   const [introChecked, setIntroChecked] = useState(false);
-
-  // ✅ เพิ่ม State สำหรับคุม Popup แลกคูปอง
   const [selectedCoupon, setSelectedCoupon] = useState<any>(null);
+  const [showConfirmPopup, setShowConfirmPopup] = useState(false);
 
-  // 🔔 [NEW] เพิ่ม State สำหรับจัดการ Custom Alert Popup แทนของเดิมที่เป็นเหลี่ยมเบราว์เซอร์
+  // 🔔 Toast Alert ด้านบน
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
 
-  // ✅ State สำหรับจุดแจ้งเตือนสีแดง
   const [hasNewNotification, setHasNewNotification] = useState(true);
   const [showLoginModal, setShowLoginModal] = useState(false);
 
@@ -43,7 +40,6 @@ export default function HomePage() {
 
   const getGreeting = () => {
     const hour = new Date().getHours();
-
     if (hour < 11) return "สวัสดีตอนเช้า";
     if (hour < 14) return "สวัสดีตอนสาย";
     if (hour < 18) return "สวัสดีตอนบ่าย";
@@ -63,21 +59,13 @@ export default function HomePage() {
 
   const onTouchEnd = () => {
     if (!touchStart || !touchEnd) return;
-
     const distance = touchStart - touchEnd;
 
-    // 👉 ปัดซ้าย
     if (distance > minSwipeDistance) {
-      setCurrentBanner((prev) =>
-        prev === banners.length - 1 ? 0 : prev + 1
-      );
+      setCurrentBanner((prev) => (prev === banners.length - 1 ? 0 : prev + 1));
     }
-
-    // 👉 ปัดขวา
     if (distance < -minSwipeDistance) {
-      setCurrentBanner((prev) =>
-        prev === 0 ? banners.length - 1 : prev - 1
-      );
+      setCurrentBanner((prev) => (prev === 0 ? banners.length - 1 : prev - 1));
     }
   };
 
@@ -85,7 +73,6 @@ export default function HomePage() {
 
   /* LOAD FIREBASE */
   const loadData = async () => {
-
     const couponSnap = await getDocs(collection(db, "coupon"));
     setCoupons(couponSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
 
@@ -94,70 +81,88 @@ export default function HomePage() {
 
     const catSnap = await getDocs(collection(db, "category"));
     setCategories(catSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
-
   };
 
-  // 🔥 ฟังก์ชันเช็คค่าหน้า Introduce ที่คุณเพิ่มเข้ามา
   useEffect(() => {
     const introSeen = localStorage.getItem("intro_seen");
-
     if (!introSeen) {
       router.push("/introduce");
     } else {
-      setIntroChecked(true); // ผ่านการตรวจสอบแล้ว ให้เปิดหน้าหลักได้ตามปกติ
+      setIntroChecked(true);
     }
   }, [router]);
 
-
-  /* 🔥 FIX LOGIN: ไม่บังคับ login แล้ว */
   useEffect(() => {
     const auth = getAuth();
-
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-
       if (user) {
         const docRef = doc(db, "users", user.uid);
         const snap = await getDoc(docRef);
-
         if (snap.exists()) {
           setUserData(snap.data());
         }
       } else {
-        setUserData(null); // ✅ ไม่ login ก็อยู่หน้าได้
+        setUserData(null);
       }
-
     });
-
     return () => unsubscribe();
   }, []);
 
-  // ✅ ฟังก์ชันแลกคูปอง
+  // 🔔 แจ้งเตือน Toast
+  const showAlert = (msg: string) => {
+    setAlertMessage(msg);
+    setTimeout(() => {
+      setAlertMessage(null);
+    }, 3200);
+  };
+
+  // 🔥 เช็คพอยท์ก่อนเปิด Pop-up ยืนยัน (แก้ไขแล้ว: ไม่เด้งปิด Popup คูปอง)
+  const triggerClaimVerify = (coupon: any) => {
+    const auth = getAuth();
+    const user = auth.currentUser;
+
+    if (!user) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    const currentBalance = userData?.balance || 0;
+    if (currentBalance < Number(coupon.points_required)) {
+      // ❌ เอา setSelectedCoupon(null) ออก เพื่อไม่ให้ Popup รายละเอียดเด้งปิดเอง
+      showAlert("คะแนนของคุณไม่เพียงพอสำหรับการแลกรับสิทธิ์");
+      return;
+    }
+
+    setSelectedCoupon(coupon);
+    setShowConfirmPopup(true);
+  };
+
+  // ✅ ฟังก์ชันแลกคูปองจริง
   const handleClaim = async (coupon: any) => {
     const auth = getAuth();
     const user = auth.currentUser;
 
     if (!user) {
-      setSelectedCoupon(null); // ปิดหน้าต่างแลกก่อน
-      setAlertMessage("กรุณาเข้าสู่ระบบก่อนแลกคูปอง");
+      setShowConfirmPopup(false);
+      setSelectedCoupon(null);
+      showAlert("กรุณาเข้าสู่ระบบก่อนแลกคูปอง");
       return;
     }
 
-    // ดึงคะแนนล่าสุดจาก DB
     const userDoc = await getDoc(doc(db, "users", user.uid));
     const currentBalance = userDoc.data()?.balance || 0;
 
     if (currentBalance < Number(coupon.points_required)) {
-      setAlertMessage("คะแนนของคุณไม่เพียงพอสำหรับการแลกรับสิทธิ์นี้");
+      setShowConfirmPopup(false);
+      showAlert("คะแนนของคุณไม่เพียงพอสำหรับการแลกรับสิทธิ์");
       return;
     }
 
     try {
-      // 1. หักคะแนน
       await updateDoc(doc(db, "users", user.uid), {
         balance: currentBalance - Number(coupon.points_required),
       });
 
-      // 2. เพิ่มใน user_coupons
       await addDoc(collection(db, "user_coupons"), {
         user_id: user.uid,
         coupon_id: coupon.id,
@@ -165,12 +170,19 @@ export default function HomePage() {
         created_at: new Date(),
       });
 
-      setSelectedCoupon(null); // ปิด Popup แลกคูปอง
-      setAlertMessage("แลกคูปองสำเร็จ! ตรวจสอบได้ที่หน้าคูปองของฉัน");
+      setShowConfirmPopup(false);
+      setSelectedCoupon(null);
+      showAlert("แลกคูปองสำเร็จ! ตรวจสอบได้ที่หน้าคูปองของฉัน");
+
+      setUserData((prev: any) => ({
+        ...prev,
+        balance: currentBalance - Number(coupon.points_required)
+      }));
 
     } catch (error) {
       console.error(error);
-      setAlertMessage("เกิดข้อผิดพลาดในการแลกคูปอง กรุณาลองใหม่อีกครั้ง");
+      setShowConfirmPopup(false);
+      showAlert("เกิดข้อผิดพลาดในการแลกคูปอง กรุณาลองใหม่อีกครั้ง");
     }
   };
 
@@ -181,27 +193,21 @@ export default function HomePage() {
     }
 
     const lower = keyword.toLowerCase();
-
-    // 🔥 หา location
     const locationMatch = locations.filter((l) =>
       l.locationName?.toLowerCase().includes(lower)
     );
-
-    // 🔥 หา category เช่น "วัด"
     const categoryMatch = categories.filter((c) =>
       c.category_name?.toLowerCase().includes(lower)
     );
 
-    // รวมกัน
     const combined = [
       ...locationMatch.map((l) => ({ ...l, type: "location" })),
       ...categoryMatch.map((c) => ({ ...c, type: "category" })),
     ];
 
-    setSuggestions(combined.slice(0, 5)); // จำกัด 5 อัน
+    setSuggestions(combined.slice(0, 5));
   }, [keyword, locations, categories]);
 
-  /* 🔥 handle profile click */
   const handleProfileClick = () => {
     const auth = getAuth();
     const user = auth.currentUser;
@@ -231,17 +237,14 @@ export default function HomePage() {
   useEffect(() => {
     loadData();
   }, []);
-  // ✅ filter คูปองที่ยังไม่หมดอายุ
+
   const validCoupons = coupons.filter(c => {
     if (!c.expiry_date) return true;
-
     const today = new Date();
     const expiry = new Date(c.expiry_date);
-
     return expiry >= today;
   });
 
-  // ✅ สุ่มแบบรายสัปดาห์
   const getWeekNumber = () => {
     const now = new Date();
     const start = new Date(now.getFullYear(), 0, 1);
@@ -250,26 +253,39 @@ export default function HomePage() {
   };
 
   const weekSeed = getWeekNumber();
-
   const shuffledCoupons = [...validCoupons].sort(() => {
     return Math.sin(weekSeed) * 10000 - 0.5;
   });
 
-  // 🛠️ ถ้ายังตรวจเช็คค่า localStorage ไม่เสร็จ ให้ส่งหน้าโหลดเปล่าๆ หรือ SplashScreen ไปก่อน เพื่อความสมูทของ UI
   if (!introChecked) {
     return <div style={{ background: "#fff", minHeight: "100vh" }}></div>;
   }
 
   return (
-
     <div className="page">
-      {/* HEADER - แก้ไข: ปรับโครงสร้างสลับตำแหน่งกล่องตามขนาดหน้าจอ */}
+
+      {/* 🔔 Toast Alert (ปรับปรุงระยะห่างและตำแหน่ง) */}
+      {alertMessage && (
+        <div className="topToastAlertContainer">
+          <div className="topToastAlert">
+            <div className="toastIcon">
+              {alertMessage.includes("สำเร็จ") ? (
+                <Icon icon="ep:success-filled" width="20" color="#ffffff" />
+              ) : (
+                "!"
+              )}
+            </div>
+            <span className="toastText">{alertMessage}</span>
+          </div>
+        </div>
+      )}
+
+      {/* HEADER */}
       <div className="header">
         <div className="headerTop">
           <h1 className="greeting-text">{getGreeting()}, {userData?.name || "User"} !</h1>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexShrink: 0 }}>
-            {/* 💡 กล่องปุ่มเวอร์ชันคอมพิวเตอร์ (จะโดนสั่งซ่อนเมื่อเป็นหน้าจอมือถือ) */}
             <div 
               onClick={() => router.push("/introduce")}
               style={{
@@ -297,7 +313,6 @@ export default function HomePage() {
               <Icon icon="mdi:help-circle-outline" width="20" style={{ color: "#6b4729", flexShrink: 0 }} />
             </div>
 
-            {/* กระดิ่งแจ้งเตือน */}
             <div
               style={{ position: 'relative', cursor: 'pointer', display: 'flex', alignItems: 'center', flexShrink: 0 }}
               onClick={() => {
@@ -306,7 +321,6 @@ export default function HomePage() {
                   setShowLoginModal(true);
                   return;
                 }
-
                 setHasNewNotification(false);
                 router.push("/notifications");
               }}
@@ -321,7 +335,6 @@ export default function HomePage() {
               )}
             </div>
 
-            {/* ส่วนแสดงโปรไฟล์ผู้ใช้ */}
             {userData?.photoURL ? (
               <img className="avatar" src={userData.photoURL} onClick={handleProfileClick} style={{ cursor: "pointer", flexShrink: 0 }} />
             ) : (
@@ -332,14 +345,9 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* บรรทัดแสดงคะแนนคงเหลือ + กล่องปุ่มแนะนําการใช้งานบนมือถือ */}
         <div className="balanceContainer" style={{ marginTop: "4px", display: "flex", justifyContent: "space-between", alignItems: "center", width: "100%" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "6px" }}>
-            <Icon
-              icon="material-symbols:rewarded-ads"
-              width="28"
-              color="#F3BC00"
-            />
+            <Icon icon="material-symbols:rewarded-ads" width="28" color="#F3BC00" />
             <span style={{ fontSize: "15px", fontWeight: "600", color: "#555" }}>
               คะแนนคงเหลือ :
             </span>
@@ -348,7 +356,6 @@ export default function HomePage() {
             </span>
           </div>
 
-          {/* 💡 กล่องปุ่มเวอร์ชันมือถือ (จะอยู่บรรทัดเดียวกับแต้ม ใต้โปรไฟล์พอดี และโดนสั่งซ่อนบนคอม) */}
           <div 
             onClick={() => router.push("/introduce")}
             style={{
@@ -364,7 +371,7 @@ export default function HomePage() {
               boxShadow: '0 2px 6px rgba(107, 71, 41, 0.08)',
               transition: 'all 0.2s ease',
               flexShrink: 0,
-              minHeight: '44px',      // 🔥 เพิ่มความสูงขั้นต่ำเพื่อแก้ปัญหาผู้ใช้งานกดดูยากบนหน้าจอมือถือ
+              minHeight: '44px',
             }}
             className="introNavBtn mobileOnlyBtn"
           >
@@ -380,14 +387,12 @@ export default function HomePage() {
         {/* SEARCH */}
         <div className="searchBar" style={{ position: "relative" }}>
           <Icon icon="lucide:search" width="18" />
-
           <input
             placeholder="วันนี้ไปเที่ยวไหนดี.."
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
           />
 
-          {/* 🔥 DROPDOWN */}
           {suggestions.length > 0 && (
             <div className="searchDropdown">
               {suggestions.map((item, i) => (
@@ -403,17 +408,11 @@ export default function HomePage() {
                   }}
                 >
                   <Icon
-                    icon={
-                      item.type === "location"
-                        ? "mdi:map-marker"
-                        : "mdi:shape"
-                    }
+                    icon={item.type === "location" ? "mdi:map-marker" : "mdi:shape"}
                     width="18"
                   />
                   <span>
-                    {item.type === "location"
-                      ? item.locationName
-                      : item.category_name}
+                    {item.type === "location" ? item.locationName : item.category_name}
                   </span>
                 </div>
               ))}
@@ -430,8 +429,6 @@ export default function HomePage() {
         onTouchEnd={onTouchEnd}
       >
         <img src={banners[currentBanner]} />
-
-
         <div className="dots">
           {banners.map((_, i) => (
             <span key={i} className={i === currentBanner ? "active" : ""} />
@@ -441,9 +438,7 @@ export default function HomePage() {
 
       {/* HOT DEALS */}
       <div className="sectionHeader">
-        <h3 style={{ fontSize: "20px", fontWeight: "bold" }}>
-          ดีลพิเศษ
-        </h3>
+        <h3 style={{ fontSize: "20px", fontWeight: "bold" }}>ดีลพิเศษ</h3>
         <span
           style={{ cursor: "pointer" }}
           onClick={() => setShowCount(prev => prev + 2)}
@@ -454,11 +449,7 @@ export default function HomePage() {
 
       <div className="hotDeals">
         {shuffledCoupons.slice(0, showCount).map((c) => {
-
-          const location = locations.find(
-            (l) => l.id === c.location_id
-          );
-
+          const location = locations.find((l) => l.id === c.location_id);
           if (!location) return null;
 
           return (
@@ -469,14 +460,12 @@ export default function HomePage() {
               style={{ cursor: "pointer" }}
             >
               <img src={location.mainImage} />
-
               <div className="dealText">
                 <h2>
                   {c.discount_type === "baht"
                     ? `${c.discount_value}฿ off`
                     : `${c.discount_value}% off`}
                 </h2>
-
                 <p>{location.locationName}</p>
                 <span style={{ fontSize: '11px', opacity: 0.9 }}>ใช้ {c.points_required} แต้ม</span>
               </div>
@@ -498,16 +487,10 @@ export default function HomePage() {
               - order.indexOf(b.category_name?.toLowerCase().trim());
           })
           .map((c) => {
-
             const name = c.category_name?.toLowerCase().trim();
-
-            const displayName =
-              name === "sight"
-                ? "Market"
-                : c.category_name;
+            const displayName = name === "sight" ? "Market" : c.category_name;
 
             let iconName = "maki:cafe";
-
             if (name === "cafe") iconName = "mdi:coffee";
             else if (name === "food") iconName = "mdi:silverware-fork-knife";
             else if (name === "temple") iconName = "mdi:temple-buddhist";
@@ -530,18 +513,16 @@ export default function HomePage() {
           })}
       </div>
 
-      {/* TRIP - แก้ไขแก้คอมเมนต์ JSX เรียบร้อยแล้ว */}
+      {/* TRIP */}
       <div
         className="tripBanner"
         onClick={() => router.push("/trip")}
         style={{ cursor: "pointer" }}
       >
         <img src="/photo/tripextra.png" />
-
         <div className="tripText">
           <h2>ทริปพิเศษ</h2>
           <h2>รับคะแนน 2 เท่า</h2>
-
           <div className="arrowInside">
             <Icon icon="lucide:chevron-right" width="26" />
           </div>
@@ -550,16 +531,12 @@ export default function HomePage() {
 
       {/* NAV */}
       <div className="bottomNav">
-
         <div className="navItem">
           <Icon icon="material-symbols-light:home-rounded" width="28" />
           <p>หน้าหลัก</p>
         </div>
 
-        <div
-          className="navItem"
-          onClick={() => router.push("/coupon")}
-        >
+        <div className="navItem" onClick={() => router.push("/coupon")}>
           <Icon icon="mdi:coupon-outline" width="26" />
           <p>คูปอง</p>
         </div>
@@ -568,10 +545,7 @@ export default function HomePage() {
           <Icon icon="tabler:qrcode" width="30" />
         </div>
 
-        <div
-          className="navItem"
-          onClick={() => router.push("/game")}
-        >
+        <div className="navItem" onClick={() => router.push("/game")}>
           <Icon icon="icon-park-solid:game-three" width="26" />
           <p>เกม</p>
         </div>
@@ -592,14 +566,13 @@ export default function HomePage() {
         </div>
       </div>
 
-
-      {/* 🔥 Popup แลกคูปอง */}
-      {selectedCoupon && (
+      {/* 🔥 Popup รายละเอียดคูปอง */}
+      {selectedCoupon && !showConfirmPopup && (
         <div className="popupOverlay" onClick={() => setSelectedCoupon(null)}>
           <div className="popupCard" onClick={(e) => e.stopPropagation()}>
             <div className="closeBtn" onClick={() => setSelectedCoupon(null)}>✕</div>
 
-            <h1 className="popupShopName">{selectedCoupon.location.locationName}</h1>
+            <h1 className="popupShopName">{selectedCoupon.location?.locationName || selectedCoupon.locationName}</h1>
             <h2 className="popupCouponName">{selectedCoupon.coupon_name || "ส่วนลดพิเศษ"}</h2>
 
             <div className="popupSection">
@@ -619,7 +592,7 @@ export default function HomePage() {
               <p className="popupExpiry">{selectedCoupon.expiry_date}</p>
             </div>
 
-            <button className="confirmRedeemBtn" onClick={() => handleClaim(selectedCoupon)}>
+            <button className="confirmRedeemBtn" onClick={() => triggerClaimVerify(selectedCoupon)}>
               <Icon icon="mdi:trophy" width="18" style={{ marginRight: '8px' }} />
               แลก {selectedCoupon.points_required} คะแนน
             </button>
@@ -627,47 +600,54 @@ export default function HomePage() {
         </div>
       )}
 
-      {/* 🔔 [FIXED] Custom Alert Popup แยกโลจิกตกลง กับ กากบาท ชัดเจน */}
-      <LoginRequiredModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
+      {/* 🔔 Popup ยืนยันการแลกคูปอง */}
+      {showConfirmPopup && selectedCoupon && (
+        <div className="popup confirmPopup" onClick={() => { setShowConfirmPopup(false); setSelectedCoupon(null); }}>
+          <div className="popupCard confirmCard" onClick={(e) => e.stopPropagation()}>
+            <div style={{ textAlign: "center", padding: "10px 0" }}>
+              <div className="confirmTrophyIcon">
+                <Icon icon="mdi:trophy" />
+              </div>
+              
+              <h2 style={{ fontSize: "20px", fontWeight: 800, margin: "14px 0 8px", color: "#333" }}>
+                ยืนยันการแลกคะแนน
+              </h2>
+              
+              <p style={{ fontSize: "14px", color: "#666", margin: "0 0 20px", padding: "0 10px", lineHeight: "1.5" }}>
+                คุณต้องการใช้คะแนนจำนวน{" "}
+                <strong style={{ color: "#eab308", fontSize: "16px" }}>
+                  {selectedCoupon.points_required} คะแนน
+                </strong>{" "}
+                เพื่อแลกรับสิทธิ์คูปองส่วนลดของร้าน{" "}
+                <strong>{selectedCoupon.location?.locationName || selectedCoupon.coupon_name}</strong> ใช่หรือไม่?
+              </p>
 
-      {alertMessage && (
-        <div className="popupOverlay" onClick={() => setAlertMessage(null)}>
-          <div className="customAlertCard" onClick={(e) => e.stopPropagation()}>
-            {/* ✕ ปุ่มกากบาทขวาบน: กดแล้วจะปิดหน้าต่างอย่างเดียว คงอยู่ที่หน้าเดิม */}
-            <div className="alertCloseBtn" onClick={() => setAlertMessage(null)}>✕</div>
-
-            <div className="alertIconWrapper">
-              <Icon
-                icon={alertMessage.includes("สำเร็จ") ? "ep:success-filled" : "solar:danger-triangle-bold"}
-                width="48"
-                color={alertMessage.includes("สำเร็จ") ? "#10B981" : "#F3BC00"}
-              />
-            </div>
-            <p className="alertMessageText">{alertMessage}</p>
-            <button
-              className="alertConfirmBtn"
-              onClick={() => {
-                const currentMsg = alertMessage;
-                setAlertMessage(null);
+              <div style={{ display: "flex", flexDirection: "column", gap: "10px", width: "100%" }}>
+                <button className="confirmBtn" onClick={() => handleClaim(selectedCoupon)}>
+                  กดยืนยัน
+                </button>
                 
-                if (currentMsg.includes("แลกคูปองสำเร็จ")) {
-                  window.location.reload();
-                }
-                if (currentMsg.includes("ยังไม่ได้เข้าสู่ระบบ") || currentMsg.includes("กรุณาเข้าสู่ระบบ")) {
-                  router.push("/login");
-                }
-              }}
-            >
-              ตกลง
-            </button>
+                <button
+                  className="cancelBtn"
+                  onClick={() => {
+                    setShowConfirmPopup(false);
+                    setSelectedCoupon(null);
+                  }}
+                >
+                  ยกเลิก
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}
 
+      <LoginRequiredModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
+
       <style jsx global>{`
 
 body{
-background-image: url('/photo/background.jpg');
+  background-image: url('/photo/background.jpg');
   background-size: cover;       
   background-position: center;  
   background-repeat: no-repeat; 
@@ -681,6 +661,65 @@ background-image: url('/photo/background.jpg');
   font-family:sans-serif;
   border-radius:0;   
   margin:0;          
+  position: relative;
+}
+
+/* 🔔 CSS ปรับแต่งใหม่สำหรับ Toast Alert ให้ไม่ติดขอบจอ */
+.topToastAlertContainer {
+  position: fixed;
+  top: 24px; /* ลอยจากขอบบนอย่างเหมาะสม */
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10001;
+  padding: 0 16px;
+  animation: slideDownToast 0.25s ease-out;
+  pointer-events: none;
+}
+
+@keyframes slideDownToast {
+  from { transform: translateY(-10px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+.topToastAlert {
+  background: #fefce8;
+  border: 1.5px solid #fde047;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  border-radius: 9999px;
+  padding: 8px 18px; /* ระยะขอบด้านในสมดุล */
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  max-width: calc(100vw - 32px); /* เว้นระยะห่างจากขอบจอทั้งสองข้าง */
+  box-sizing: border-box;
+  pointer-events: auto;
+}
+
+.toastIcon {
+  background: #c2410c;
+  color: #ffffff;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-weight: 900;
+  font-size: 13px;
+}
+
+.toastText {
+  color: #c2410c;
+  font-size: 13.5px;
+  font-weight: 700;
+  white-space: normal; /* ยอมให้ตัดคำเมื่อข้อความยาว */
+  word-break: break-word;
+  line-height: 1.3;
 }
 
 .avatar{
@@ -725,13 +764,6 @@ overflow:hidden;
 .banner img{
 width:100%;
 object-fit:cover;
-}
-
-.bannerText{
-position:absolute;
-bottom:20px;
-left:20px;
-color:white;
 }
 
 .dots{
@@ -797,10 +829,6 @@ bottom:10px;
 left:10px;
 color:white;
 z-index:2;
-}
-
-.categoryTitle{
-margin-top:20px;
 }
 
 .categories{
@@ -897,73 +925,67 @@ margin-top:-30px;
 }
 
 @media(max-width:760px){
-
-.hotDeals {
-    display: flex !important;
-    flex-direction: column !important;
-    width: 100% !important;
-    overflow-x: hidden !important; 
-    gap: 15px !important;
+  .hotDeals {
+      display: flex !important;
+      flex-direction: column !important;
+      width: 100% !important;
+      overflow-x: hidden !important; 
+      gap: 15px !important;
   }
 
-.hotDeals::-webkit-scrollbar{
-display:none;
-}
+  .dealCard{
+    min-width:220px;   
+    height:120px;
+    flex-shrink:0;
+    border-radius:10px;
+    display: block !important;
+  }
 
-.dealCard{
-min-width:220px;   
-height:120px;
-flex-shrink:0;
-border-radius:10px;
-display: block !important;
-}
+  .dealCard img{
+    width:100%;
+    height:100%;
+    object-fit:cover;
+  }
 
-.dealCard img{
-width:100%;
-height:100%;
-object-fit:cover;
-}
+  .dealText{
+    bottom:10px;
+    left:10px;
+    right:10px;
+  }
 
-.dealText{
-bottom:10px;
-left:10px;
-right:10px;
-}
+  .dealText h2{
+    font-size:28px;   
+    font-weight:800;
+  }
 
-.dealText h2{
-font-size:28px;   
-font-weight:800;
-}
+  .dealText p{
+    font-size:14px;
+    font-weight:700;
+    margin-top:-4px;
+  }
 
-.dealText p{
-font-size:14px;
-font-weight:700;
-margin-top:-4px;
-}
+  .categories{
+    gap:16px;
+    padding-left:6px;
+    justify-content:flex-start;
+  }
 
-.categories{
-gap:16px;
-padding-left:6px;
-justify-content:flex-start;
-}
+  .catCircle{
+    width:60px;
+    height:60px;
+  }
 
-.catCircle{
-width:60px;
-height:60px;
-}
+  .catItem p{
+    font-size:12px;
+  }
 
-.catItem p{
-font-size:12px;
-}
-
-.tripText h2{
-  font-size:28px;     
-  font-weight:900;    
-  line-height:1.2;
-  letter-spacing:0.5px; 
-  text-shadow: 0 2px 8px rgba(0,0,0,0.4);
-}
-
+  .tripText h2{
+    font-size:28px;     
+    font-weight:900;    
+    line-height:1.2;
+    letter-spacing:0.5px; 
+    text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+  }
 }
 
 @media(min-width:1024px){
@@ -974,7 +996,7 @@ font-size:12px;
     box-shadow:0 0 20px rgba(0,0,0,0.25);
     overflow:hidden;
   }
-     .dealCard{
+  .dealCard{
     height:260px;   
   }
 
@@ -988,7 +1010,7 @@ font-size:12px;
     line-height:1;
   }
 
-    .tripText h2{
+  .tripText h2{
     font-size:36px;    
     font-weight:900;
     line-height:1.2;
@@ -998,16 +1020,16 @@ font-size:12px;
 }
   
 .categories{
-justify-content:flex-start;   
-gap:25px;                     
+  justify-content:flex-start;   
+  gap:25px;                     
 }
 
 .catItem{
-width:auto;                   
+  width:auto;                   
 }
 
 .banner img{
-height:250px;
+  height:250px;
 }
 
 .dealCard::after{
@@ -1029,6 +1051,7 @@ height:250px;
 .searchItem:hover{
   background:#f5f5f5;
 }
+
 .searchBar{
   position:relative;
   width:100%;
@@ -1069,7 +1092,6 @@ height:250px;
   align-items: center;
 }
 
-/* 💻 ขนาดฟอนต์เวอร์ชันคอมพิวเตอร์ตามที่เดฟต้องการ */
 .greeting-text {
   font-size: 28px;
   font-weight: 700;
@@ -1082,19 +1104,18 @@ height:250px;
   gap: 6px;
 }
 
-/* 📱 ปรับแต่งแยก Layout และฟอนต์สำหรับหน้าจอมือถือ (ความกว้างไม่เกิน 480px) */
 @media (max-width: 480px) {
   .greeting-text {
-    font-size: 22px !important;    /* 👈 แก้ไข: ดึงขนาดฟอนต์คำทักทายกลับมาเท่าเดิม (16px) เรียบร้อย */
-    max-width: 65% !important;    /* ป้องกันตัวอักษรยาวเกินจนเบียดรูปแจ้งเตือน */
+    font-size: 22px !important;
+    max-width: 65% !important;
   }
 
   .desktopOnlyBtn {
-    display: none !important;     /* ซ่อนปุ่มทัวร์ในคอมพิวเตอร์เมื่อเปิดบนมือถือ */
+    display: none !important;
   }
 
   .mobileOnlyBtn {
-    display: flex !important;     /* เปิดแสดงผลปุ่มทัวร์คู่กับแต้มคงเหลือเฉพาะในมือถือ */
+    display: flex !important;
   }
 }
   
@@ -1109,69 +1130,72 @@ height:250px;
 .popupDiscountBox { background: #fff7cc; border: 1px solid #facc15; padding: 12px; border-radius: 10px; text-align: center; font-weight: 800; font-size: 18px; color: #333; }
 .popupSection p.popupDesc { font-size: 14px; color: #444; line-height: 1.4; }
 .popupExpiry { font-size: 14px; font-weight: 600; color: #333; }
-.confirmRedeemBtn { background: #facc15; color: white; border: none; width: 100%; padding: 14px; border-radius: 12px; font-weight: 800; font-size: 16px; margin-top: 10px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+
+.confirmRedeemBtn { 
+  background: #6b4729; 
+  color: white; 
+  border: none; 
+  width: 100%; 
+  padding: 14px; 
+  border-radius: 12px; 
+  font-weight: 800; 
+  font-size: 16px; 
+  margin-top: 10px; 
+  cursor: pointer; 
+  display: flex; 
+  align-items: center; 
+  justify-content: center; 
+}
 .confirmRedeemBtn:active { transform: scale(0.97); }
 
-/* 🔔 สไตล์สำหรับการ์ดแจ้งเตือน Custom Alert ป็อปอัป */
-.customAlertCard {
-  background: white;
-  width: 85%;
-  max-width: 320px;
-  border-radius: 24px;
-  padding: 36px 24px 20px 24px;
-  text-align: center;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.2);
-  position: relative;
-  animation: slideUp 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
-}
-.alertCloseBtn {
-  position: absolute;
-  top: 15px;
-  right: 18px;
-  font-size: 18px;
-  color: #999;
-  cursor: pointer;
-  transition: color 0.2s;
-}
-.alertCloseBtn:hover {
-  color: #666;
-}
-
-.alertIconWrapper {
-  margin-bottom: 16px;
+.popup {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
   display: flex;
   justify-content: center;
   align-items: center;
+  backdrop-filter: blur(6px);
+  z-index: 10000;
 }
 
-.alertMessageText {
-  font-size: 16px;
-  font-weight: 600;
-  color: #444;
-  line-height: 1.5;
-  margin-bottom: 24px;
-  white-space: pre-line;
+.confirmTrophyIcon {
+  width: 60px;
+  height: 60px;
+  background: #fef08a;
+  color: #eab308;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  margin: 0 auto;
 }
 
-.alertConfirmBtn {
-  background: #614124; 
+.confirmBtn {
+  background: #6b4729;
   color: white;
   border: none;
-  width: 100%;
   padding: 12px;
-  border-radius: 14px;
+  border-radius: 12px;
   font-weight: 700;
   font-size: 15px;
   cursor: pointer;
-  transition: all 0.2s;
+  width: 100%;
 }
 
-.alertConfirmBtn:active {
-  transform: scale(0.96);
-  opacity: 0.9;
+.cancelBtn {
+  background: #f3f4f6;
+  color: #4b5563;
+  border: 1px solid #e5e7eb;
+  padding: 12px;
+  border-radius: 12px;
+  font-weight: 700;
+  font-size: 15px;
+  cursor: pointer;
+  width: 100%;
 }
 
-/* 🖱️ เพิ่ม Effect ตอนเอานิ้วจิ้มปุ่ม introduce เพื่อความสมูทในการกด */
 .introNavBtn:active {
   transform: scale(0.95);
   background-color: #faf6f0 !important;

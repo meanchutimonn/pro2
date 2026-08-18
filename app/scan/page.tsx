@@ -17,15 +17,17 @@ export default function ScanPage() {
   const [scanned, setScanned] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
 
+  // 🔥 1. เพิ่ม State สำหรับเปิด/ปิด Pop-up แจ้งเตือน
+  const [showAuthModal, setShowAuthModal] = useState(false);
+
   useEffect(() => {
 
     const startCamera = async () => {
       const user = getAuth().currentUser;
 
       if (!user) {
-        alert("กรุณาเข้าสู่ระบบก่อนใช้งาน");
-
-        router.push("/login"); // 🔥 เด้งไปหน้า login
+        // 🔥 2. แก้ตรงนี้: เปลี่ยนจาก alert() เป็นสั่งเปิด Pop-up แทน
+        setShowAuthModal(true);
         return;
       }
 
@@ -144,10 +146,30 @@ export default function ScanPage() {
           • สำหรับตลาด จุดสแกนจะอยู่ที่เสาแรกของทางเข้าตลาด
         </p>
       </div>
-      <div style={{ marginTop: "20px", display: "flex", gap: "10px" }}>
 
-
-      </div>
+      {/* 🔥 3. เพิ่มส่วนแสดงผล Pop-up Modal */}
+      {showAuthModal && (
+        <div style={modalOverlay}>
+          <div style={modalCard}>
+            <h3 style={modalTitle}>แจ้งเตือน</h3>
+            <p style={modalText}>กรุณาเข้าสู่ระบบก่อนใช้งาน</p>
+            <div style={modalBtnGroup}>
+              <button 
+                style={cancelBtn} 
+                onClick={() => setShowAuthModal(false)}
+              >
+                ยกเลิก
+              </button>
+              <button 
+                style={loginBtn} 
+                onClick={() => router.push("/login")}
+              >
+                เข้าสู่ระบบ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style jsx global>{`
           body{
@@ -260,4 +282,69 @@ const guideText: React.CSSProperties = {
   fontSize: "14px",
   lineHeight: "1.5",
   color: "#444"
+};
+
+/* 🔥 4. สไตล์ Pop-up Modal เพิ่มเติม */
+
+const modalOverlay: React.CSSProperties = {
+  position: "fixed",
+  top: 0,
+  left: 0,
+  width: "100vw",
+  height: "100vh",
+  backgroundColor: "rgba(0, 0, 0, 0.5)",
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  zIndex: 9999
+};
+
+const modalCard: React.CSSProperties = {
+  width: "85%",
+  maxWidth: "340px",
+  backgroundColor: "#ffffff",
+  borderRadius: "18px",
+  padding: "24px 20px",
+  boxShadow: "0 10px 25px rgba(0,0,0,0.2)",
+  textAlign: "center"
+};
+
+const modalTitle: React.CSSProperties = {
+  margin: "0 0 8px 0",
+  fontSize: "18px",
+  fontWeight: "700",
+  color: "#333"
+};
+
+const modalText: React.CSSProperties = {
+  margin: "0 0 20px 0",
+  fontSize: "15px",
+  color: "#666"
+};
+
+const modalBtnGroup: React.CSSProperties = {
+  display: "flex",
+  gap: "10px"
+};
+
+const cancelBtn: React.CSSProperties = {
+  flex: 1,
+  padding: "10px",
+  borderRadius: "10px",
+  border: "1px solid #ddd",
+  backgroundColor: "#f5f5f5",
+  color: "#555",
+  fontWeight: "600",
+  cursor: "pointer"
+};
+
+const loginBtn: React.CSSProperties = {
+  flex: 1,
+  padding: "10px",
+  borderRadius: "10px",
+  border: "none",
+  backgroundColor: "#6b4729", // สีเดียวกับธีมแอป
+  color: "#ffffff",
+  fontWeight: "600",
+  cursor: "pointer"
 };
